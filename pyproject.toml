@@ -1,0 +1,12 @@
+[project]
+name = "comfyui-chime"
+version = "0.1.0"
+description = "ComfyUI custom node that plays a frontend chime when execution reaches the node."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  { name = "Jacob Giordano" }
+]
+
+[tool.setuptools]
+py-modules = ["nodes"]
