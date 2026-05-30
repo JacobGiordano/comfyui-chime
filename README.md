@@ -9,6 +9,9 @@ Receiver-only ComfyUI custom node that plays a frontend sound when execution rea
 - No global notifications
 - No TTS
 - Frontend audio playback driven by a Python-emitted event
+- Node-level `Preview sound` button for faster tuning
+- In-app feedback when audio is blocked or a custom sound cannot be resolved
+- Node-level resolved-source hint so the selected sound path is easier to verify
 - Intended to work in current ComfyUI Web and ComfyUI Desktop
 
 ## Node
@@ -24,6 +27,59 @@ Receiver-only ComfyUI custom node that plays a frontend sound when execution rea
 - `sound`: built-in sound choice or `custom`
 - `custom_sound`: filename from `sounds/` or an absolute local file path when `sound` is set to `custom`
 - `volume`: float from `0.0` to `1.0`
+- `pitch_shift`: semitone shift for built-in synthesized sounds from `-36.0` to `36.0`
+- `tone_character`: built-in synth voicing: `default`, `warm`, `bright`, or `hollow`
+- `waveform`: built-in oscillator override: `auto`, `sine`, `triangle`, `square`, or `sawtooth`
+- `cooldown_ms`: minimum time in milliseconds before the same node will play again
+- `playback_mode`: choose how repeated triggers behave: `interrupt`, `overlap`, or `queue`
+
+When `sound` is set to a built-in option, the node keeps `custom_sound` as an optional field. When `sound` is set to `custom`, the node UI shows more explicit guidance for repo-local filenames and absolute local paths.
+
+The node also shows a read-only resolved-source hint so you can tell whether the current selection will use a built-in synth voice, a repo-local file from `sounds/`, or an absolute local file path.
+
+### Playback Modes
+
+- `interrupt`: stop the current chime and play the newest one immediately
+- `overlap`: let multiple chimes play at the same time
+- `queue`: wait for the current chime to finish before playing the next one
+
+### Built-In Sound Modifiers
+
+- `pitch_shift` only affects the built-in synthesized sounds
+- `tone_character` changes the built-in timbre without affecting custom audio files
+- `waveform` can force a specific oscillator shape across the built-in sounds
+- Custom sound files ignore both controls and play as-is
+
+### Built-In Sounds
+
+The built-in bank now includes 12 synthesized sounds:
+
+- `chime`
+- `bell`
+- `soft`
+- `success`
+- `alert`
+- `sparkle`
+- `mellow`
+- `pulse`
+- `rise`
+- `glass`
+- `retro`
+- `bloom`
+
+### Cooldown
+
+- `cooldown_ms=0` means no suppression
+- When set above `0`, repeated executions of the same node inside that window are ignored
+- Cooldown applies to execution-triggered playback, not the `Preview sound` button
+
+### Previewing Sounds
+
+Use the node's `Preview sound` button to hear the currently selected sound without running the whole workflow.
+
+- Built-in sounds preview immediately
+- Custom previews support both repo-local files in `sounds/` and absolute local paths
+- If browser audio is still locked, the frontend will prompt you to click once in ComfyUI and try again
 
 ### Custom Sounds
 
@@ -73,6 +129,8 @@ You can use custom sounds in either of two ways:
 - or an absolute local path like `/System/Library/Sounds/Hero.aiff`
 - Or, if files are present when ComfyUI loads the node, they may also appear directly in the `sound` dropdown as `custom:filename.ext`
 
+If a previously discovered dropdown entry points to a file that has since been removed or renamed, the node now reports that more clearly instead of silently acting like the selection is still valid.
+
 #### Good to know
 
 - Using a filename from `sounds/` is still the most portable option.
@@ -98,3 +156,38 @@ Clone or copy this folder into your ComfyUI `custom_nodes` directory, then resta
 ## Notes
 
 The backend emits a `comfyui-chime.play` event through `PromptServer`, and the frontend extension uses the Web Audio API to synthesize a few built-in notification sounds without requiring external audio files.
+
+## Troubleshooting
+
+### Node runs, but no sound plays
+
+- Click once anywhere in ComfyUI, then try again. Some Web and Desktop environments block audio until the page receives user interaction.
+- Use `Preview sound` on the node after clicking once. If preview works but graph execution does not, the issue is more likely workflow placement or trigger timing than audio support.
+- Built-in synthesized sounds are the simplest baseline check. If built-ins work and a custom file does not, the problem is probably file format or file path related.
+
+### ComfyUI Web vs ComfyUI Desktop
+
+- Both environments should work, but they may differ slightly because playback still depends on the browser engine and OS media support underneath.
+- Audio unlock behavior can feel different between environments. One may allow playback sooner while the other still needs an explicit click or keypress first.
+- Custom file decode support can differ a bit between environments even when the extension is accepted by the node.
+- If you want the safest cross-environment path, test with a built-in sound first, then a short `wav`, then a short `mp3`.
+
+### Custom sound does not resolve
+
+- For repo-local files, make sure the file is inside `sounds/`.
+- After adding a new repo-local file, refresh or restart ComfyUI so the dropdown can discover it.
+- For absolute local paths, confirm the path exists on the current machine and points to a supported audio file.
+- Absolute paths are convenient, but they are machine-specific. A workflow that works on one system may not resolve the same path on another.
+
+### Custom sound resolves, but still does not play
+
+- Convert the file to `wav` or `mp3` first. That is the best fallback for compatibility.
+- Keep test files short while debugging. Very large files may start later and can make playback issues harder to distinguish from latency.
+- If `wav` and `mp3` work but another format does not, treat that as a runtime codec limitation rather than a node failure.
+
+### Repeated triggers behave unexpectedly
+
+- `interrupt` stops the current sound and starts the newest one immediately.
+- `overlap` allows multiple sounds to stack, which can feel much louder or busier in fast workflows.
+- `queue` waits for earlier sounds to finish, so rapid triggers may produce delayed playback by design.
+- If you are not sure whether timing is the issue, switch to `interrupt` first while debugging.

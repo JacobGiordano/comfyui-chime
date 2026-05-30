@@ -17,8 +17,24 @@ ANY_TYPE = AnyType("*")
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 SOUNDS_DIR = PACKAGE_DIR / "sounds"
-SOUND_CHOICES = ["chime", "bell", "soft", "success"]
+SOUND_CHOICES = [
+    "chime",
+    "bell",
+    "soft",
+    "success",
+    "alert",
+    "sparkle",
+    "mellow",
+    "pulse",
+    "rise",
+    "glass",
+    "retro",
+    "bloom",
+]
 CUSTOM_SOUND_OPTION = "custom"
+PLAYBACK_MODE_CHOICES = ["interrupt", "overlap", "queue"]
+TONE_CHARACTER_CHOICES = ["default", "warm", "bright", "hollow"]
+WAVEFORM_CHOICES = ["auto", "sine", "triangle", "square", "sawtooth"]
 SUPPORTED_SOUND_EXTENSIONS = {".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac", ".webm", ".aiff", ".aif"}
 CUSTOM_SOUND_TOKENS = {}
 
@@ -51,6 +67,50 @@ def build_repo_sound_url(filename: str) -> str:
     return f"/comfyui-chime/sounds/{filename}"
 
 
+def resolve_repo_sound_path(filename: str | None) -> Path | None:
+    filename = (filename or "").strip()
+    if not filename:
+        return None
+
+    resolved = (SOUNDS_DIR / filename).resolve()
+    if SOUNDS_DIR.resolve() not in resolved.parents:
+        return None
+    if not is_supported_sound_file(resolved):
+        return None
+    return resolved
+
+
+def resolve_discovered_sound_url(sound: str | None) -> str | None:
+    sound = (sound or "").strip()
+    if not sound.startswith("custom:"):
+        return None
+
+    filename = sound.split("custom:", 1)[1]
+    resolved = resolve_repo_sound_path(filename)
+    if resolved is None:
+        return None
+    return build_repo_sound_url(resolved.name)
+
+
+def resolve_preview_sound_url(custom_sound: str | None) -> str | None:
+    custom_sound = (custom_sound or "").strip()
+    if not custom_sound:
+        return None
+
+    custom_path = Path(custom_sound).expanduser()
+    if custom_path.is_absolute():
+        resolved = custom_path.resolve()
+        if is_supported_sound_file(resolved):
+            return register_external_sound(resolved)
+        return None
+
+    resolved = resolve_repo_sound_path(custom_sound)
+    if resolved is not None:
+        return build_repo_sound_url(resolved.name)
+
+    return None
+
+
 def register_external_sound(path: Path) -> str:
     token = secrets.token_urlsafe(16)
     CUSTOM_SOUND_TOKENS[token] = path
@@ -69,11 +129,61 @@ def resolve_custom_sound_url(custom_sound: str | None) -> str | None:
             return register_external_sound(resolved)
         return None
 
-    resolved = (SOUNDS_DIR / custom_sound).resolve()
-    if SOUNDS_DIR.resolve() in resolved.parents and is_supported_sound_file(resolved):
+    resolved = resolve_repo_sound_path(custom_sound)
+    if resolved is not None:
         return build_repo_sound_url(resolved.name)
 
     return None
+
+
+def get_unresolved_discovered_sound_message(sound: str | None) -> str:
+    sound = (sound or "").strip()
+    filename = sound.split("custom:", 1)[1] if sound.startswith("custom:") else ""
+
+    if not filename:
+        return "The selected discovered custom sound is missing its filename."
+
+    resolved = (SOUNDS_DIR / filename).resolve()
+    if SOUNDS_DIR.resolve() not in resolved.parents:
+        return "The selected discovered custom sound is no longer valid."
+    if not resolved.exists():
+        return f"The selected discovered custom sound was not found in sounds/: {filename}"
+    if resolved.suffix.lower() not in SUPPORTED_SOUND_EXTENSIONS:
+        return (
+            "The selected discovered custom sound uses an unsupported extension. "
+            "Try wav or mp3 for the best compatibility."
+        )
+    return "The selected discovered custom sound could not be resolved."
+
+
+def get_unresolved_custom_sound_message(custom_sound: str | None) -> str:
+    custom_sound = (custom_sound or "").strip()
+    if not custom_sound:
+        return "Custom sound selected, but no file was provided."
+
+    custom_path = Path(custom_sound).expanduser()
+    if custom_path.is_absolute():
+        resolved = custom_path.resolve()
+        if not resolved.exists():
+            return f"Custom sound was not found: {resolved}"
+        if resolved.suffix.lower() not in SUPPORTED_SOUND_EXTENSIONS:
+            return (
+                "Custom sound uses an unsupported extension. "
+                "Try wav or mp3 for the best compatibility."
+            )
+        return "Custom sound could not be used from the provided absolute path."
+
+    resolved = (SOUNDS_DIR / custom_sound).resolve()
+    if SOUNDS_DIR.resolve() not in resolved.parents:
+        return "Custom sound must stay inside sounds/ when using a repo-local filename."
+    if not resolved.exists():
+        return f"Custom sound was not found in sounds/: {custom_sound}"
+    if resolved.suffix.lower() not in SUPPORTED_SOUND_EXTENSIONS:
+        return (
+            "Custom sound in sounds/ uses an unsupported extension. "
+            "Try wav or mp3 for the best compatibility."
+        )
+    return "Custom sound could not be resolved."
 
 
 @PromptServer.instance.routes.get("/comfyui-chime/sounds/{filename}")
@@ -104,6 +214,16 @@ async def get_external_sound_file(request):
     return web.FileResponse(sound_path, headers={"Content-Type": content_type or "application/octet-stream"})
 
 
+@PromptServer.instance.routes.get("/comfyui-chime/preview")
+async def preview_sound_file(request):
+    custom_sound = request.query.get("path")
+    preview_url = resolve_preview_sound_url(custom_sound)
+    if preview_url is None:
+        raise web.HTTPNotFound()
+
+    raise web.HTTPFound(preview_url)
+
+
 class ChimeNode:
     @classmethod
     def INPUT_TYPES(cls):
@@ -121,6 +241,11 @@ class ChimeNode:
                     },
                 ),
                 "volume": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.05}),
+                "cooldown_ms": ("INT", {"default": 0, "min": 0, "max": 60000, "step": 50}),
+                "playback_mode": (PLAYBACK_MODE_CHOICES, {"default": "interrupt"}),
+                "pitch_shift": ("FLOAT", {"default": 0.0, "min": -36.0, "max": 36.0, "step": 0.5}),
+                "tone_character": (TONE_CHARACTER_CHOICES, {"default": "default"}),
+                "waveform": (WAVEFORM_CHOICES, {"default": "auto"}),
             },
             "hidden": {
                 "unique_id": "UNIQUE_ID",
@@ -132,16 +257,33 @@ class ChimeNode:
     OUTPUT_NODE = True
     CATEGORY = "utils/notifications"
 
-    def execute(self, trigger, enabled, sound, custom_sound, volume, unique_id=None):
+    def execute(
+        self,
+        trigger,
+        enabled,
+        sound,
+        custom_sound,
+        volume,
+        cooldown_ms,
+        playback_mode,
+        pitch_shift,
+        tone_character,
+        waveform,
+        unique_id=None,
+    ):
         if enabled:
             selected_sound = sound
             custom_sound_url = None
+            error_message = None
 
             if isinstance(sound, str) and sound.startswith("custom:"):
-                filename = sound.split("custom:", 1)[1]
-                custom_sound_url = build_repo_sound_url(filename)
+                custom_sound_url = resolve_discovered_sound_url(sound)
+                if custom_sound_url is None:
+                    error_message = get_unresolved_discovered_sound_message(sound)
             elif sound == CUSTOM_SOUND_OPTION:
                 custom_sound_url = resolve_custom_sound_url(custom_sound)
+                if custom_sound_url is None:
+                    error_message = get_unresolved_custom_sound_message(custom_sound)
 
             PromptServer.instance.send_sync(
                 "comfyui-chime.play",
@@ -150,6 +292,12 @@ class ChimeNode:
                     "sound": selected_sound,
                     "custom_sound_url": custom_sound_url,
                     "volume": float(volume),
+                    "pitch_shift": float(pitch_shift),
+                    "tone_character": tone_character,
+                    "waveform": waveform,
+                    "cooldown_ms": int(cooldown_ms),
+                    "playback_mode": playback_mode,
+                    "error_message": error_message,
                 },
             )
 
