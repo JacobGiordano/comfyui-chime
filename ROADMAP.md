@@ -35,7 +35,7 @@ Living checklist for UX improvements, small features, and maintenance work.
 
 - [x] Add lifecycle cleanup for `CUSTOM_SOUND_TOKENS` so stale absolute-path tokens do not accumulate forever
 - [x] Document tokenized absolute-path behavior a bit more clearly
-- [ ] Improve failure messaging around unsupported-but-present audio files
+- [x] Improve failure messaging around unsupported-but-present audio files
 
 ## Notes
 

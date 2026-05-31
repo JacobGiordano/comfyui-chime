@@ -195,6 +195,7 @@ The backend emits a `comfyui-chime.play` event through `PromptServer`, and the f
 - Convert the file to `wav` or `mp3` first. That is the best fallback for compatibility.
 - Keep test files short while debugging. Very large files may start later and can make playback issues harder to distinguish from latency.
 - If `wav` and `mp3` work but another format does not, treat that as a runtime codec limitation rather than a node failure.
+- When a custom file resolves but still cannot decode or play in the current environment, the node now tries to name that specific file in the in-app warning instead of only showing a generic playback failure.
 
 ### Repeated triggers behave unexpectedly
 

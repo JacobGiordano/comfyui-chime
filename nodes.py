@@ -71,6 +71,18 @@ def build_repo_sound_url(filename: str) -> str:
     return f"/comfyui-chime/sounds/{filename}"
 
 
+def get_display_name_for_custom_sound(custom_sound: str | None) -> str | None:
+    custom_sound = (custom_sound or "").strip()
+    if not custom_sound:
+        return None
+
+    custom_path = Path(custom_sound).expanduser()
+    if custom_path.is_absolute():
+        return custom_path.name or str(custom_path)
+
+    return Path(custom_sound).name or custom_sound
+
+
 def prune_custom_sound_tokens(now: float | None = None) -> None:
     current_time = time.monotonic() if now is None else now
     expired_tokens = [
@@ -301,14 +313,17 @@ class ChimeNode:
         if enabled:
             selected_sound = sound
             custom_sound_url = None
+            custom_sound_label = None
             error_message = None
 
             if isinstance(sound, str) and sound.startswith("custom:"):
                 custom_sound_url = resolve_discovered_sound_url(sound)
+                custom_sound_label = sound.split("custom:", 1)[1] or None
                 if custom_sound_url is None:
                     error_message = get_unresolved_discovered_sound_message(sound)
             elif sound == CUSTOM_SOUND_OPTION:
                 custom_sound_url = resolve_custom_sound_url(custom_sound)
+                custom_sound_label = get_display_name_for_custom_sound(custom_sound)
                 if custom_sound_url is None:
                     error_message = get_unresolved_custom_sound_message(custom_sound)
 
@@ -318,6 +333,7 @@ class ChimeNode:
                     "node_id": unique_id,
                     "sound": selected_sound,
                     "custom_sound_url": custom_sound_url,
+                    "custom_sound_label": custom_sound_label,
                     "volume": float(volume),
                     "pitch_shift": float(pitch_shift),
                     "tone_character": tone_character,

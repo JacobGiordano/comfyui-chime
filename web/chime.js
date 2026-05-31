@@ -120,6 +120,20 @@ function showToast(message, tone = "warning") {
     }, TOAST_DURATION_MS);
 }
 
+function getAudioErrorMessage(label, error) {
+    const safeLabel = label ? `“${label}”` : "This custom sound";
+    const mediaError = error?.target?.error;
+
+    if (typeof MediaError !== "undefined" && mediaError?.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
+        return `${safeLabel} resolved, but this environment could not decode it. Try wav or mp3.`;
+    }
+    if (typeof MediaError !== "undefined" && mediaError?.code === MediaError.MEDIA_ERR_NETWORK) {
+        return `${safeLabel} could not be loaded cleanly. Try previewing again or switch to wav or mp3.`;
+    }
+
+    return `${safeLabel} resolved, but it could not play here. Try wav or mp3.`;
+}
+
 function getAudioContext() {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextClass) {
@@ -533,7 +547,7 @@ function getCustomSoundUrl(sound) {
     return `/comfyui-chime/sounds/${encodeURIComponent(filename)}`;
 }
 
-async function playCustomSound(url, volume = 0.5) {
+async function playCustomSound(url, volume = 0.5, label = "") {
     const clampedVolume = Math.max(0, Math.min(1, Number(volume) || 0));
     const audio = new Audio(url);
     audio.volume = clampedVolume;
@@ -554,11 +568,15 @@ async function playCustomSound(url, volume = 0.5) {
         };
 
         audio.onended = cleanup;
-        audio.onerror = cleanup;
+        audio.onerror = (error) => {
+            console.warn("[ComfyUI-Chime] Custom sound failed during media load/playback.", error);
+            showToast(getAudioErrorMessage(label, error), "warning");
+            cleanup();
+        };
 
         audio.play().catch((error) => {
             console.warn("[ComfyUI-Chime] Failed to play custom sound.", error);
-            showToast("Custom sound could not play. If this keeps happening, try wav or mp3.", "warning");
+            showToast(getAudioErrorMessage(label, error), "warning");
             cleanup();
         });
     });
@@ -656,6 +674,10 @@ async function previewNodeSound(node) {
         toneCharacter,
         waveform,
         playbackMode,
+        customSoundLabel:
+            typeof sound === "string" && sound.startsWith(CUSTOM_SOUND_PREFIX)
+                ? sound.slice(CUSTOM_SOUND_PREFIX.length)
+                : customSound,
         resolveCustomUrl: () => {
             if (typeof sound === "string" && sound.startsWith(CUSTOM_SOUND_PREFIX)) {
                 return getCustomSoundUrl(sound);
@@ -679,13 +701,14 @@ async function playSoundRequest({
     toneCharacter,
     waveform,
     playbackMode,
+    customSoundLabel,
     resolveCustomUrl,
 }) {
     const mode = normalizePlaybackMode(typeof playbackMode === "string" ? playbackMode : DEFAULT_PLAYBACK_MODE);
     const executePlayback = async () => {
         const customUrl = resolveCustomUrl();
         if (customUrl) {
-            await playCustomSound(customUrl, volume);
+            await playCustomSound(customUrl, volume, customSoundLabel);
             return;
         }
 
@@ -761,6 +784,7 @@ api.addEventListener("comfyui-chime.play", async (event) => {
         toneCharacter,
         waveform,
         playbackMode,
+        customSoundLabel: typeof detail.custom_sound_label === "string" ? detail.custom_sound_label : "",
         resolveCustomUrl: () => {
             if (typeof detail.custom_sound_url === "string" && detail.custom_sound_url.length > 0) {
                 return detail.custom_sound_url;
