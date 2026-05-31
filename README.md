@@ -36,7 +36,7 @@ Receiver-only ComfyUI custom node that plays a frontend sound when execution rea
 
 When `sound` is set to a built-in option, the node keeps `custom_sound` as an optional field. When `sound` is set to `custom`, the node UI shows more explicit guidance for repo-local filenames and absolute local paths.
 
-The node also shows a read-only resolved-source hint so you can tell whether the current selection will use a built-in synth voice, a repo-local file from `sounds/`, or an absolute local file path.
+The node also shows a read-only resolved-source hint so you can tell whether the current selection will use a built-in synth voice, a discovered repo-local file from `sounds/`, a manually entered repo-local filename from `sounds/`, or an absolute local file path.
 
 ### Playback Modes
 

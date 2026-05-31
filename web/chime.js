@@ -5,10 +5,10 @@ const EXTENSION_NAME = "comfyui-chime";
 const MAX_MASTER_GAIN = 0.75;
 const CUSTOM_SOUND_PREFIX = "custom:";
 const TOAST_DURATION_MS = 3200;
-const DEFAULT_CUSTOM_PLACEHOLDER = "Optional when using a built-in sound";
-const CUSTOM_INPUT_PLACEHOLDER = "sounds/ding.mp3 or /absolute/path/to/ding.wav";
+const DEFAULT_CUSTOM_PLACEHOLDER = "Used only when sound is set to custom";
+const CUSTOM_INPUT_PLACEHOLDER = "glass-tap.wav from sounds/ or /absolute/path/to/ding.wav";
 const SOURCE_HINT_BUILT_IN = "Built-in: chime";
-const SOURCE_HINT_CUSTOM_EMPTY = "Waiting for a custom file path";
+const SOURCE_HINT_CUSTOM_EMPTY = "Enter a filename from sounds/ or an absolute path";
 const BUILT_IN_SOUNDS = new Set([
     "alert",
     "bell",
@@ -246,7 +246,7 @@ function normalizeWaveform(value) {
 function describeResolvedSource(soundValue, customSoundValue) {
     if (typeof soundValue === "string" && soundValue.startsWith(CUSTOM_SOUND_PREFIX)) {
         const filename = soundValue.slice(CUSTOM_SOUND_PREFIX.length);
-        return filename ? `Discovered file: ${filename}` : SOURCE_HINT_CUSTOM_EMPTY;
+        return filename ? `Discovered repo file: sounds/${filename}` : SOURCE_HINT_CUSTOM_EMPTY;
     }
 
     if (soundValue === "custom") {
@@ -260,7 +260,7 @@ function describeResolvedSource(soundValue, customSoundValue) {
             return `Absolute file: ${filename}`;
         }
 
-        return `Repo file: ${customValue}`;
+        return `Repo file: sounds/${customValue}`;
     }
 
     if (BUILT_IN_SOUNDS.has(String(soundValue || ""))) {

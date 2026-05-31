@@ -17,6 +17,7 @@ Current roadmap for small features, polish passes, and maintenance work.
 - Custom absolute-path playback uses temporary tokenized routes with cleanup
 - Custom sound failure messaging is more specific than before
 - Manual verification checklist is documented for release/polish passes
+- Custom sound path UX now has clearer placeholder/source copy without changing layout behavior
 
 ## Next
 
@@ -24,8 +25,8 @@ Current roadmap for small features, polish passes, and maintenance work.
   Notes: shipped with concise failure-only backend/frontend logging for resolve, fetch, decode, and playback paths when practical.
 - [x] Add a small manual verification checklist for release/polish passes
   Notes: documented in README with built-in playback, discovered repo-local file, manual repo-local file, absolute-path custom file, preview, cooldown, playback modes, and failure feedback checks.
-- [ ] Improve custom sound path UX without reintroducing unstable layout behavior
-  Notes: prefer tiny copy/placeholder wins over more custom widget complexity.
+- [x] Improve custom sound path UX without reintroducing unstable layout behavior
+  Notes: shipped as placeholder and source-hint copy improvements only, with no added widget/layout complexity.
 
 ## Later
 
