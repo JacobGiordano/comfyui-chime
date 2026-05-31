@@ -11,17 +11,17 @@ const SOURCE_HINT_BUILT_IN = "Built-in: chime";
 const SOURCE_HINT_CUSTOM_EMPTY = "Enter a filename from sounds/ or an absolute path";
 const BUILT_IN_SOUNDS = new Set([
     "alert",
+    "beacon",
     "bell",
     "bloom",
-    "soft",
-    "sparkle",
-    "success",
     "chime",
-    "mellow",
-    "pulse",
-    "rise",
     "glass",
+    "knock",
+    "pulse",
     "retro",
+    "rise",
+    "settle",
+    "soft",
 ]);
 const DEFAULT_PLAYBACK_MODE = "interrupt";
 const DEFAULT_TONE_CHARACTER = "default";
@@ -34,17 +34,17 @@ const TONE_CHARACTERS = new Set(["default", "warm", "bright", "hollow"]);
 const WAVEFORMS = new Set(["auto", "sine", "triangle", "square", "sawtooth"]);
 const SOUND_DURATIONS_MS = {
     alert: 520,
+    beacon: 980,
     bell: 920,
     bloom: 1150,
-    soft: 720,
-    sparkle: 820,
-    success: 620,
     chime: 900,
-    mellow: 980,
-    pulse: 760,
-    rise: 880,
     glass: 740,
+    knock: 430,
+    pulse: 760,
     retro: 680,
+    rise: 880,
+    settle: 860,
+    soft: 720,
 };
 const INFO_WIDGET_HEIGHT = 46;
 const INFO_WIDGET_PADDING_X = 12;
@@ -498,6 +498,11 @@ function playPattern(
             tones.push(scheduleTone(ctx, master, now + 0.1, 523.25 * pitchMultiplier, 0.16, primaryType, 0.48 * gainMultiplier));
             tones.push(scheduleTone(ctx, master, now + 0.22, 740 * pitchMultiplier, 0.2, accentType, 0.42 * gainMultiplier));
             break;
+        case "beacon":
+            tones.push(scheduleTone(ctx, master, now, 659.25 * pitchMultiplier, 0.14, accentType, 0.28 * gainMultiplier));
+            tones.push(scheduleTone(ctx, master, now + 0.26, 659.25 * pitchMultiplier, 0.18, accentType, 0.24 * gainMultiplier));
+            tones.push(scheduleTone(ctx, master, now + 0.6, 987.77 * pitchMultiplier, 0.24, primaryType, 0.22 * gainMultiplier));
+            break;
         case "bell":
             tones.push(scheduleTone(ctx, master, now, 880 * pitchMultiplier, 0.9, accentType, 0.9 * gainMultiplier));
             tones.push(scheduleTone(ctx, master, now + 0.02, 1320 * pitchMultiplier, 0.7, primaryType, 0.4 * gainMultiplier));
@@ -509,26 +514,16 @@ function playPattern(
             tones.push(scheduleTone(ctx, master, now + 0.36, 659.25 * pitchMultiplier, 0.48, primaryType, 0.28 * gainMultiplier));
             tones.push(scheduleTone(ctx, master, now + 0.62, 783.99 * pitchMultiplier, 0.42, accentType, 0.24 * gainMultiplier));
             break;
+        case "knock":
+            tones.push(scheduleTone(ctx, master, now, 196 * pitchMultiplier, 0.07, primaryType, 0.58 * gainMultiplier));
+            tones.push(scheduleTone(ctx, master, now + 0.04, 130.81 * pitchMultiplier, 0.1, accentType, 0.18 * gainMultiplier));
+            tones.push(scheduleTone(ctx, master, now + 0.16, 220 * pitchMultiplier, 0.08, primaryType, 0.46 * gainMultiplier));
+            tones.push(scheduleTone(ctx, master, now + 0.2, 146.83 * pitchMultiplier, 0.12, accentType, 0.16 * gainMultiplier));
+            break;
         case "soft":
             tones.push(scheduleTone(ctx, master, now, 523.25 * pitchMultiplier, 0.18, accentType, 0.35 * gainMultiplier));
             tones.push(scheduleTone(ctx, master, now + 0.14, 659.25 * pitchMultiplier, 0.25, accentType, 0.3 * gainMultiplier));
             tones.push(scheduleTone(ctx, master, now + 0.28, 783.99 * pitchMultiplier, 0.4, primaryType, 0.28 * gainMultiplier));
-            break;
-        case "sparkle":
-            tones.push(scheduleTone(ctx, master, now, 1174.66 * pitchMultiplier, 0.08, accentType, 0.26 * gainMultiplier));
-            tones.push(scheduleTone(ctx, master, now + 0.07, 1567.98 * pitchMultiplier, 0.08, primaryType, 0.24 * gainMultiplier));
-            tones.push(scheduleTone(ctx, master, now + 0.14, 2093 * pitchMultiplier, 0.12, accentType, 0.2 * gainMultiplier));
-            tones.push(scheduleTone(ctx, master, now + 0.28, 1318.51 * pitchMultiplier, 0.32, primaryType, 0.18 * gainMultiplier));
-            break;
-        case "success":
-            tones.push(scheduleTone(ctx, master, now, 659.25 * pitchMultiplier, 0.12, primaryType, 0.5 * gainMultiplier));
-            tones.push(scheduleTone(ctx, master, now + 0.12, 783.99 * pitchMultiplier, 0.12, primaryType, 0.45 * gainMultiplier));
-            tones.push(scheduleTone(ctx, master, now + 0.24, 987.77 * pitchMultiplier, 0.3, primaryType, 0.4 * gainMultiplier));
-            break;
-        case "mellow":
-            tones.push(scheduleTone(ctx, master, now, 349.23 * pitchMultiplier, 0.28, accentType, 0.28 * gainMultiplier));
-            tones.push(scheduleTone(ctx, master, now + 0.24, 440 * pitchMultiplier, 0.34, primaryType, 0.24 * gainMultiplier));
-            tones.push(scheduleTone(ctx, master, now + 0.52, 523.25 * pitchMultiplier, 0.42, accentType, 0.2 * gainMultiplier));
             break;
         case "pulse":
             tones.push(scheduleTone(ctx, master, now, 220 * pitchMultiplier, 0.1, primaryType, 0.46 * gainMultiplier));
@@ -541,6 +536,12 @@ function playPattern(
             tones.push(scheduleTone(ctx, master, now + 0.12, 554.37 * pitchMultiplier, 0.14, accentType, 0.32 * gainMultiplier));
             tones.push(scheduleTone(ctx, master, now + 0.26, 659.25 * pitchMultiplier, 0.18, primaryType, 0.34 * gainMultiplier));
             tones.push(scheduleTone(ctx, master, now + 0.44, 880 * pitchMultiplier, 0.32, accentType, 0.3 * gainMultiplier));
+            break;
+        case "settle":
+            tones.push(scheduleTone(ctx, master, now, 659.25 * pitchMultiplier, 0.16, accentType, 0.3 * gainMultiplier));
+            tones.push(scheduleTone(ctx, master, now + 0.16, 523.25 * pitchMultiplier, 0.2, primaryType, 0.28 * gainMultiplier));
+            tones.push(scheduleTone(ctx, master, now + 0.34, 392 * pitchMultiplier, 0.34, accentType, 0.24 * gainMultiplier));
+            tones.push(scheduleTone(ctx, master, now + 0.54, 293.66 * pitchMultiplier, 0.24, primaryType, 0.18 * gainMultiplier));
             break;
         case "glass":
             tones.push(scheduleTone(ctx, master, now, 1046.5 * pitchMultiplier, 0.14, accentType, 0.4 * gainMultiplier));

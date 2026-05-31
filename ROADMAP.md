@@ -20,6 +20,7 @@ Current roadmap for small features, polish passes, and maintenance work.
 - Custom sound path UX now has clearer placeholder/source copy without changing layout behavior
 - UI copy and toast wording are now more consistent around repo-local files, absolute paths, and custom sound errors
 - Troubleshooting logs now include custom sound source-kind detail when practical
+- Built-in synth options were culled for clearer differentiation, with new presets added to cover low percussive, descending, and neutral signal gaps
 
 ## Next
 
@@ -32,8 +33,8 @@ Current roadmap for small features, polish passes, and maintenance work.
 
 ## Later
 
-- [ ] Add a couple of additional built-in synth presets only if they fill real gaps by ear
-  Notes: avoid bloating the built-in list just to add variety.
+- [x] Add a couple of additional built-in synth presets only if they fill real gaps by ear
+  Notes: shipped alongside a cull of overly similar built-ins; added more distinct low percussive, descending, and neutral signal presets instead of expanding the list blindly.
 - [x] Consider a tiny release/polish pass on naming consistency in UI copy and toasts
   Notes: shipped as copy-only cleanup for repo-local file, absolute-path, and custom-sound wording across toasts and warnings.
 - [x] Add optional diagnostic detail for custom-sound troubleshooting

@@ -24,15 +24,15 @@ SOUND_CHOICES = [
     "chime",
     "bell",
     "soft",
-    "success",
     "alert",
-    "sparkle",
-    "mellow",
     "pulse",
     "rise",
     "glass",
     "retro",
     "bloom",
+    "knock",
+    "settle",
+    "beacon",
 ]
 CUSTOM_SOUND_OPTION = "custom"
 PLAYBACK_MODE_CHOICES = ["interrupt", "overlap", "queue"]

@@ -53,20 +53,26 @@ The node also shows a read-only resolved-source hint so you can tell whether the
 
 ### Built-In Sounds
 
-The built-in bank now includes 12 synthesized sounds:
+The built-in bank now includes 12 synthesized sounds, trimmed to make the options easier to tell apart:
 
 - `chime`
 - `bell`
 - `soft`
-- `success`
 - `alert`
-- `sparkle`
-- `mellow`
 - `pulse`
 - `rise`
 - `glass`
 - `retro`
 - `bloom`
+- `knock`
+- `settle`
+- `beacon`
+
+Recent culls:
+
+- `success` was removed because it overlapped too closely with `chime`
+- `sparkle` was removed because it overlapped too closely with `glass`
+- `mellow` was removed because it overlapped too closely with `bloom`
 
 ### Cooldown
 
