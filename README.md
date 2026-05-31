@@ -211,6 +211,7 @@ Use this short pass before a release or after a polish change:
 - If `wav` and `mp3` work but another format does not, treat that as a runtime codec limitation rather than a node failure.
 - When a custom file resolves but still cannot decode or play in the current environment, the node now tries to name that specific file in the in-app warning instead of only showing a generic playback failure.
 - Custom sound failures now also emit concise runtime logs so resolve, fetch, decode, and playback issues are easier to tell apart during debugging.
+- Warning copy now uses more consistent terms for repo-local files, absolute paths, and custom sound failures.
 
 ### Repeated triggers behave unexpectedly
 

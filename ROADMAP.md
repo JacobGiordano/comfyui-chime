@@ -18,6 +18,7 @@ Current roadmap for small features, polish passes, and maintenance work.
 - Custom sound failure messaging is more specific than before
 - Manual verification checklist is documented for release/polish passes
 - Custom sound path UX now has clearer placeholder/source copy without changing layout behavior
+- UI copy and toast wording are now more consistent around repo-local files, absolute paths, and custom sound errors
 
 ## Next
 
@@ -32,8 +33,8 @@ Current roadmap for small features, polish passes, and maintenance work.
 
 - [ ] Add a couple of additional built-in synth presets only if they fill real gaps by ear
   Notes: avoid bloating the built-in list just to add variety.
-- [ ] Consider a tiny release/polish pass on naming consistency in UI copy and toasts
-  Notes: keep it subtle; avoid broad refactors.
+- [x] Consider a tiny release/polish pass on naming consistency in UI copy and toasts
+  Notes: shipped as copy-only cleanup for repo-local file, absolute-path, and custom-sound wording across toasts and warnings.
 - [ ] Add optional diagnostic detail for custom-sound troubleshooting
   Notes: this could stay dev-facing if user-facing UI would get noisy.
 

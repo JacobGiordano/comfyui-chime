@@ -143,13 +143,13 @@ function getAudioErrorMessage(label, error) {
     const mediaError = error?.target?.error;
 
     if (typeof MediaError !== "undefined" && mediaError?.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
-        return `${safeLabel} resolved, but this environment could not decode it. Try wav or mp3.`;
+        return `${safeLabel} resolved, but this environment could not decode it. Try .wav or .mp3.`;
     }
     if (typeof MediaError !== "undefined" && mediaError?.code === MediaError.MEDIA_ERR_NETWORK) {
-        return `${safeLabel} could not be loaded cleanly. Try previewing again or switch to wav or mp3.`;
+        return `${safeLabel} could not be loaded cleanly. Try previewing again or switch to .wav or .mp3.`;
     }
 
-    return `${safeLabel} resolved, but it could not play here. Try wav or mp3.`;
+    return `${safeLabel} resolved, but it could not play here. Try .wav or .mp3.`;
 }
 
 function getAudioFailureStage(error) {
@@ -733,7 +733,7 @@ async function previewNodeSound(node) {
                     logCustomSoundFailure("resolve", {
                         detail: "preview requested without a custom path",
                     });
-                    showToast("Enter a file in sounds/ or an absolute path before previewing a custom sound.", "warning");
+                    showToast("Enter a repo-local file from sounds/ or an absolute path before previewing a custom sound.", "warning");
                     return null;
                 }
                 return `/comfyui-chime/preview?path=${encodeURIComponent(customSound)}`;
@@ -842,10 +842,10 @@ api.addEventListener("comfyui-chime.play", async (event) => {
             if (detail.sound === "custom") {
                 logCustomSoundFailure("resolve", {
                     label: typeof detail.custom_sound_label === "string" ? detail.custom_sound_label : "",
-                    detail: "custom sound selected, but no valid sound file was resolved",
+                    detail: "custom sound is selected, but no valid file was resolved",
                 });
                 if (!detail.error_message) {
-                    showToast("Custom sound selected, but no valid sound file was resolved.", "warning");
+                    showToast("Custom sound is selected, but no valid file was resolved.", "warning");
                 }
                 return null;
             }

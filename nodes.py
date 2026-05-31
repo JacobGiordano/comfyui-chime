@@ -177,25 +177,25 @@ def get_unresolved_discovered_sound_message(sound: str | None) -> str:
     filename = sound.split("custom:", 1)[1] if sound.startswith("custom:") else ""
 
     if not filename:
-        return "The selected discovered custom sound is missing its filename."
+        return "The selected discovered repo-local sound is missing its filename."
 
     resolved = (SOUNDS_DIR / filename).resolve()
     if SOUNDS_DIR.resolve() not in resolved.parents:
-        return "The selected discovered custom sound is no longer valid."
+        return "The selected discovered repo-local sound is no longer valid."
     if not resolved.exists():
-        return f"The selected discovered custom sound was not found in sounds/: {filename}"
+        return f"The selected discovered repo-local sound was not found in sounds/: {filename}"
     if resolved.suffix.lower() not in SUPPORTED_SOUND_EXTENSIONS:
         return (
-            "The selected discovered custom sound uses an unsupported extension. "
-            "Try wav or mp3 for the best compatibility."
+            "The selected discovered repo-local sound uses an unsupported extension. "
+            "Try .wav or .mp3 for the best compatibility."
         )
-    return "The selected discovered custom sound could not be resolved."
+    return "The selected discovered repo-local sound could not be resolved."
 
 
 def get_unresolved_custom_sound_message(custom_sound: str | None) -> str:
     custom_sound = (custom_sound or "").strip()
     if not custom_sound:
-        return "Custom sound selected, but no file was provided."
+        return "Custom sound is selected, but no file was provided."
 
     custom_path = Path(custom_sound).expanduser()
     if custom_path.is_absolute():
@@ -205,7 +205,7 @@ def get_unresolved_custom_sound_message(custom_sound: str | None) -> str:
         if resolved.suffix.lower() not in SUPPORTED_SOUND_EXTENSIONS:
             return (
                 "Custom sound uses an unsupported extension. "
-                "Try wav or mp3 for the best compatibility."
+                "Try .wav or .mp3 for the best compatibility."
             )
         return "Custom sound could not be used from the provided absolute path."
 
@@ -217,7 +217,7 @@ def get_unresolved_custom_sound_message(custom_sound: str | None) -> str:
     if resolved.suffix.lower() not in SUPPORTED_SOUND_EXTENSIONS:
         return (
             "Custom sound in sounds/ uses an unsupported extension. "
-            "Try wav or mp3 for the best compatibility."
+            "Try .wav or .mp3 for the best compatibility."
         )
     return "Custom sound could not be resolved."
 
