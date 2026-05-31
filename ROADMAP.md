@@ -1,44 +1,42 @@
 # ComfyUI-Chime Roadmap
 
-Living checklist for UX improvements, small features, and maintenance work.
+Current roadmap for small features, polish passes, and maintenance work.
 
 ## How To Use This
 
-- Mark items complete as we ship them.
-- Reword, reorder, split, or delete items as priorities change.
-- Keep `README.md` focused on current behavior and use this file for forward-looking work.
+- Check items off as they ship.
+- If an item is completed, update `README.md` in the same pass when behavior or usage changes.
+- Prefer committing each checked-off roadmap item immediately after it lands.
+- Preserve the receiver-only `Chime` node shape unless we intentionally decide otherwise.
 
-## Now
+## Current State
 
-- [x] Add a node-level preview button so users can audition sounds without running the whole workflow
-- [x] Add clearer in-app feedback for blocked audio and unresolved custom sounds
-- [x] Raise the built-in synth loudness ceiling so max volume feels more usable
+- Receiver-only `Chime` node is working
+- Built-in synth bank, preview button, cooldown, playback modes, and synth modifiers are shipped
+- Repo-local starter sound pack is shipped in `sounds/`
+- Custom absolute-path playback uses temporary tokenized routes with cleanup
+- Custom sound failure messaging is more specific than before
 
 ## Next
 
-- [x] Improve custom sound discoverability in the node UI
-  Notes: make repo-local options and absolute-path support more obvious when `sound=custom`.
-- [x] Add optional overlap behavior for repeated triggers
-  Notes: likely modes are interrupt, queue, or allow overlap.
-- [x] Add a short troubleshooting pass for runtime differences between ComfyUI Web and ComfyUI Desktop
-  Notes: focus on audio unlock, codec support, and custom file behavior.
+- [ ] Add lightweight runtime logging for custom sound failures
+  Notes: keep logs concise and failure-only; include whether the issue happened during resolve, fetch, decode, or playback when practical.
+- [ ] Add a small manual verification checklist for release/polish passes
+  Notes: built-in playback, discovered repo-local file, absolute-path custom file, preview button, cooldown, and playback modes.
+- [ ] Improve custom sound path UX without reintroducing unstable layout behavior
+  Notes: prefer tiny copy/placeholder wins over more custom widget complexity.
 
 ## Later
 
-- [x] Add a `cooldown_ms` input to suppress repeated chimes in bursty graphs
-- [x] Add built-in sound modifiers such as pitch or playback character for synthesized tones
-- [x] Bundle a few polished default sound files in `sounds/` as ready-to-use examples
-- [x] Expose a clearer “resolved source” hint for the selected sound
-  Notes: built-in synth, repo-local file, or tokenized absolute-path route.
-
-## Technical UX Debt
-
-- [x] Add lifecycle cleanup for `CUSTOM_SOUND_TOKENS` so stale absolute-path tokens do not accumulate forever
-- [x] Document tokenized absolute-path behavior a bit more clearly
-- [x] Improve failure messaging around unsupported-but-present audio files
+- [ ] Add a couple of additional built-in synth presets only if they fill real gaps by ear
+  Notes: avoid bloating the built-in list just to add variety.
+- [ ] Consider a tiny release/polish pass on naming consistency in UI copy and toasts
+  Notes: keep it subtle; avoid broad refactors.
+- [ ] Add optional diagnostic detail for custom-sound troubleshooting
+  Notes: this could stay dev-facing if user-facing UI would get noisy.
 
 ## Notes
 
-- Preserve receiver-only behavior unless we intentionally decide otherwise.
-- Keep changes compatible with both ComfyUI Web and ComfyUI Desktop where practical.
-- Prefer small, surgical UX wins over broad refactors.
+- Keep compatibility with ComfyUI Web and ComfyUI Desktop in mind.
+- Treat browser/runtime audio quirks as product concerns, not just implementation details.
+- Prefer small, surgical wins over broad UI experimentation.
