@@ -19,8 +19,8 @@ Current roadmap for small features, polish passes, and maintenance work.
 
 ## Next
 
-- [ ] Add lightweight runtime logging for custom sound failures
-  Notes: keep logs concise and failure-only; include whether the issue happened during resolve, fetch, decode, or playback when practical.
+- [x] Add lightweight runtime logging for custom sound failures
+  Notes: shipped with concise failure-only backend/frontend logging for resolve, fetch, decode, and playback paths when practical.
 - [ ] Add a small manual verification checklist for release/polish passes
   Notes: built-in playback, discovered repo-local file, absolute-path custom file, preview button, cooldown, and playback modes.
 - [ ] Improve custom sound path UX without reintroducing unstable layout behavior

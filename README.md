@@ -12,6 +12,7 @@ Receiver-only ComfyUI custom node that plays a frontend sound when execution rea
 - Node-level `Preview sound` button for faster tuning
 - In-app feedback when audio is blocked or a custom sound cannot be resolved
 - Node-level resolved-source hint so the selected sound path is easier to verify
+- Lightweight failure-only logging for custom sound resolve, fetch, decode, and playback issues
 - Intended to work in current ComfyUI Web and ComfyUI Desktop
 
 ## Node
@@ -196,6 +197,7 @@ The backend emits a `comfyui-chime.play` event through `PromptServer`, and the f
 - Keep test files short while debugging. Very large files may start later and can make playback issues harder to distinguish from latency.
 - If `wav` and `mp3` work but another format does not, treat that as a runtime codec limitation rather than a node failure.
 - When a custom file resolves but still cannot decode or play in the current environment, the node now tries to name that specific file in the in-app warning instead of only showing a generic playback failure.
+- Custom sound failures now also emit concise runtime logs so resolve, fetch, decode, and playback issues are easier to tell apart during debugging.
 
 ### Repeated triggers behave unexpectedly
 

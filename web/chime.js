@@ -61,6 +61,24 @@ const lastPlaybackAtByNode = new Map();
 const activeCustomSounds = new Set();
 const activeSynthSounds = new Set();
 
+function logCustomSoundFailure(stage, { label = "", url = "", error = null, detail = "" } = {}) {
+    const parts = [`[ComfyUI-Chime] Custom sound failure during ${stage}.`];
+    if (label) {
+        parts.push(`label=${label}`);
+    }
+    if (url) {
+        parts.push(`url=${url}`);
+    }
+    if (detail) {
+        parts.push(`detail=${detail}`);
+    }
+    if (error) {
+        console.warn(parts.join(" "), error);
+        return;
+    }
+    console.warn(parts.join(" "));
+}
+
 function showToast(message, tone = "warning") {
     if (!message) {
         return;
@@ -132,6 +150,23 @@ function getAudioErrorMessage(label, error) {
     }
 
     return `${safeLabel} resolved, but it could not play here. Try wav or mp3.`;
+}
+
+function getAudioFailureStage(error) {
+    const mediaError = error?.target?.error;
+    if (typeof MediaError !== "undefined" && mediaError?.code === MediaError.MEDIA_ERR_NETWORK) {
+        return "fetch";
+    }
+    if (
+        typeof MediaError !== "undefined" &&
+        (mediaError?.code === MediaError.MEDIA_ERR_DECODE || mediaError?.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED)
+    ) {
+        return "decode";
+    }
+    if (error?.name === "NotAllowedError") {
+        return "playback";
+    }
+    return "load";
 }
 
 function getAudioContext() {
@@ -569,13 +604,24 @@ async function playCustomSound(url, volume = 0.5, label = "") {
 
         audio.onended = cleanup;
         audio.onerror = (error) => {
-            console.warn("[ComfyUI-Chime] Custom sound failed during media load/playback.", error);
+            const stage = getAudioFailureStage(error);
+            logCustomSoundFailure(stage, {
+                label,
+                url,
+                error,
+                detail: "media element reported an error",
+            });
             showToast(getAudioErrorMessage(label, error), "warning");
             cleanup();
         };
 
         audio.play().catch((error) => {
-            console.warn("[ComfyUI-Chime] Failed to play custom sound.", error);
+            logCustomSoundFailure("playback", {
+                label,
+                url,
+                error,
+                detail: error?.message || "audio.play() rejected",
+            });
             showToast(getAudioErrorMessage(label, error), "warning");
             cleanup();
         });
@@ -684,6 +730,9 @@ async function previewNodeSound(node) {
             }
             if (sound === "custom") {
                 if (!customSound) {
+                    logCustomSoundFailure("resolve", {
+                        detail: "preview requested without a custom path",
+                    });
                     showToast("Enter a file in sounds/ or an absolute path before previewing a custom sound.", "warning");
                     return null;
                 }
@@ -791,7 +840,10 @@ api.addEventListener("comfyui-chime.play", async (event) => {
             }
 
             if (detail.sound === "custom") {
-                console.warn("[ComfyUI-Chime] Custom sound selected, but no valid sound file was resolved.");
+                logCustomSoundFailure("resolve", {
+                    label: typeof detail.custom_sound_label === "string" ? detail.custom_sound_label : "",
+                    detail: "custom sound selected, but no valid sound file was resolved",
+                });
                 if (!detail.error_message) {
                     showToast("Custom sound selected, but no valid sound file was resolved.", "warning");
                 }

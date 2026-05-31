@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import mimetypes
 import secrets
 import time
@@ -41,6 +42,7 @@ SUPPORTED_SOUND_EXTENSIONS = {".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac", "
 CUSTOM_SOUND_TOKEN_TTL_SECONDS = 60 * 30
 MAX_CUSTOM_SOUND_TOKENS = 256
 CUSTOM_SOUND_TOKENS = OrderedDict()
+LOGGER = logging.getLogger("comfyui_chime")
 
 
 def get_custom_sound_choices():
@@ -220,6 +222,16 @@ def get_unresolved_custom_sound_message(custom_sound: str | None) -> str:
     return "Custom sound could not be resolved."
 
 
+def log_custom_sound_failure(stage: str, *, sound: str | None = None, custom_sound: str | None = None, detail: str) -> None:
+    context = []
+    if sound:
+        context.append(f"sound={sound}")
+    if custom_sound:
+        context.append(f"custom_sound={custom_sound}")
+    context_text = f" ({', '.join(context)})" if context else ""
+    LOGGER.warning("custom sound failure [%s]%s: %s", stage, context_text, detail)
+
+
 @PromptServer.instance.routes.get("/comfyui-chime/sounds/{filename}")
 async def get_sound_file(request):
     filename = request.match_info["filename"]
@@ -239,6 +251,7 @@ async def get_external_sound_file(request):
     entry = CUSTOM_SOUND_TOKENS.get(token)
 
     if entry is None:
+        log_custom_sound_failure("fetch", detail="custom sound token was missing or expired")
         raise web.HTTPNotFound()
 
     entry["expires_at"] = time.monotonic() + CUSTOM_SOUND_TOKEN_TTL_SECONDS
@@ -247,6 +260,7 @@ async def get_external_sound_file(request):
     sound_path = sound_path.resolve()
     if not is_supported_sound_file(sound_path):
         CUSTOM_SOUND_TOKENS.pop(token, None)
+        log_custom_sound_failure("fetch", custom_sound=str(sound_path), detail="resolved absolute-path sound was unavailable")
         raise web.HTTPNotFound()
 
     content_type, _ = mimetypes.guess_type(sound_path.name)
@@ -258,6 +272,7 @@ async def preview_sound_file(request):
     custom_sound = request.query.get("path")
     preview_url = resolve_preview_sound_url(custom_sound)
     if preview_url is None:
+        log_custom_sound_failure("resolve", custom_sound=custom_sound, detail="preview route could not resolve custom sound")
         raise web.HTTPNotFound()
 
     raise web.HTTPFound(preview_url)
@@ -321,11 +336,18 @@ class ChimeNode:
                 custom_sound_label = sound.split("custom:", 1)[1] or None
                 if custom_sound_url is None:
                     error_message = get_unresolved_discovered_sound_message(sound)
+                    log_custom_sound_failure("resolve", sound=sound, detail=error_message)
             elif sound == CUSTOM_SOUND_OPTION:
                 custom_sound_url = resolve_custom_sound_url(custom_sound)
                 custom_sound_label = get_display_name_for_custom_sound(custom_sound)
                 if custom_sound_url is None:
                     error_message = get_unresolved_custom_sound_message(custom_sound)
+                    log_custom_sound_failure(
+                        "resolve",
+                        sound=sound,
+                        custom_sound=custom_sound,
+                        detail=error_message,
+                    )
 
             PromptServer.instance.send_sync(
                 "comfyui-chime.play",
