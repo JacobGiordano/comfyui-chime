@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import mimetypes
 import secrets
+import time
+from collections import OrderedDict
 from pathlib import Path
 
 from aiohttp import web
@@ -36,7 +38,9 @@ PLAYBACK_MODE_CHOICES = ["interrupt", "overlap", "queue"]
 TONE_CHARACTER_CHOICES = ["default", "warm", "bright", "hollow"]
 WAVEFORM_CHOICES = ["auto", "sine", "triangle", "square", "sawtooth"]
 SUPPORTED_SOUND_EXTENSIONS = {".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac", ".webm", ".aiff", ".aif"}
-CUSTOM_SOUND_TOKENS = {}
+CUSTOM_SOUND_TOKEN_TTL_SECONDS = 60 * 30
+MAX_CUSTOM_SOUND_TOKENS = 256
+CUSTOM_SOUND_TOKENS = OrderedDict()
 
 
 def get_custom_sound_choices():
@@ -65,6 +69,20 @@ def is_supported_sound_file(path: Path) -> bool:
 
 def build_repo_sound_url(filename: str) -> str:
     return f"/comfyui-chime/sounds/{filename}"
+
+
+def prune_custom_sound_tokens(now: float | None = None) -> None:
+    current_time = time.monotonic() if now is None else now
+    expired_tokens = [
+        token
+        for token, entry in CUSTOM_SOUND_TOKENS.items()
+        if entry["expires_at"] <= current_time
+    ]
+    for token in expired_tokens:
+        CUSTOM_SOUND_TOKENS.pop(token, None)
+
+    while len(CUSTOM_SOUND_TOKENS) > MAX_CUSTOM_SOUND_TOKENS:
+        CUSTOM_SOUND_TOKENS.popitem(last=False)
 
 
 def resolve_repo_sound_path(filename: str | None) -> Path | None:
@@ -112,8 +130,12 @@ def resolve_preview_sound_url(custom_sound: str | None) -> str | None:
 
 
 def register_external_sound(path: Path) -> str:
+    prune_custom_sound_tokens()
     token = secrets.token_urlsafe(16)
-    CUSTOM_SOUND_TOKENS[token] = path
+    CUSTOM_SOUND_TOKENS[token] = {
+        "path": path,
+        "expires_at": time.monotonic() + CUSTOM_SOUND_TOKEN_TTL_SECONDS,
+    }
     return f"/comfyui-chime/custom-sound/{token}"
 
 
@@ -200,14 +222,19 @@ async def get_sound_file(request):
 
 @PromptServer.instance.routes.get("/comfyui-chime/custom-sound/{token}")
 async def get_external_sound_file(request):
+    prune_custom_sound_tokens()
     token = request.match_info["token"]
-    sound_path = CUSTOM_SOUND_TOKENS.get(token)
+    entry = CUSTOM_SOUND_TOKENS.get(token)
 
-    if sound_path is None:
+    if entry is None:
         raise web.HTTPNotFound()
 
+    entry["expires_at"] = time.monotonic() + CUSTOM_SOUND_TOKEN_TTL_SECONDS
+    CUSTOM_SOUND_TOKENS.move_to_end(token)
+    sound_path = entry["path"]
     sound_path = sound_path.resolve()
     if not is_supported_sound_file(sound_path):
+        CUSTOM_SOUND_TOKENS.pop(token, None)
         raise web.HTTPNotFound()
 
     content_type, _ = mimetypes.guess_type(sound_path.name)

@@ -27,14 +27,14 @@ Living checklist for UX improvements, small features, and maintenance work.
 
 - [x] Add a `cooldown_ms` input to suppress repeated chimes in bursty graphs
 - [x] Add built-in sound modifiers such as pitch or playback character for synthesized tones
-- [ ] Bundle a few polished default sound files in `sounds/` as ready-to-use examples
+- [x] Bundle a few polished default sound files in `sounds/` as ready-to-use examples
 - [x] Expose a clearer “resolved source” hint for the selected sound
   Notes: built-in synth, repo-local file, or tokenized absolute-path route.
 
 ## Technical UX Debt
 
-- [ ] Add lifecycle cleanup for `CUSTOM_SOUND_TOKENS` so stale absolute-path tokens do not accumulate forever
-- [ ] Document tokenized absolute-path behavior a bit more clearly
+- [x] Add lifecycle cleanup for `CUSTOM_SOUND_TOKENS` so stale absolute-path tokens do not accumulate forever
+- [x] Document tokenized absolute-path behavior a bit more clearly
 - [ ] Improve failure messaging around unsupported-but-present audio files
 
 ## Notes

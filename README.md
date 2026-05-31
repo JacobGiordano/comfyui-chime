@@ -95,6 +95,15 @@ Drop audio files into `sounds/` and restart or refresh ComfyUI. Supported extens
 - `.aiff`
 - `.aif`
 
+This repo now ships with a small ready-to-use starter pack in `sounds/`:
+
+- `glass-tap.wav`: short bright confirmation tap
+- `soft-pop.wav`: soft low pop for subtle workflow checkpoints
+- `mellow-bloom.wav`: longer gentle swell for more noticeable completions
+- `arcade-ping.wav`: snappier retro-style ping
+
+These files are intended as portable baseline examples, and they should also appear as discovered `custom:...` dropdown entries after ComfyUI reloads the node.
+
 ### Format Notes
 
 These extensions are accepted by the node, but actual playback depends on the browser engine used by ComfyUI Web or ComfyUI Desktop.
@@ -137,6 +146,8 @@ If a previously discovered dropdown entry points to a file that has since been r
 - Using an absolute local path is convenient, but it is machine-specific and may not work the same way if you move the workflow to another computer or OS.
 - For repo-local filenames, a restart or refresh helps the dropdown discover new files.
 - For absolute local paths entered into `custom_sound`, dropdown discovery is not required because the backend resolves the file at execution time.
+- Absolute local paths are exposed to the frontend through temporary tokenized routes instead of sending the raw filesystem path directly.
+- Those temporary absolute-path tokens now expire automatically after a short idle window, and the backend also caps how many are kept around in a long-running session.
 
 ## Layout
 

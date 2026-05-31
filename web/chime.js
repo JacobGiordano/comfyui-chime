@@ -7,11 +7,8 @@ const CUSTOM_SOUND_PREFIX = "custom:";
 const TOAST_DURATION_MS = 3200;
 const DEFAULT_CUSTOM_PLACEHOLDER = "Optional when using a built-in sound";
 const CUSTOM_INPUT_PLACEHOLDER = "sounds/ding.mp3 or /absolute/path/to/ding.wav";
-const CUSTOM_HELP_INACTIVE = "Using a built-in sound. Select custom to enter a file path.";
-const CUSTOM_HELP_ACTIVE = "Custom sound: use a filename from sounds/ or an absolute local path.";
-const CUSTOM_HELP_DISCOVERED = "This dropdown entry points to a file already discovered in sounds/.";
-const SOURCE_HINT_BUILT_IN = "Resolved source: built-in synth";
-const SOURCE_HINT_CUSTOM_EMPTY = "Resolved source: waiting for a custom file path";
+const SOURCE_HINT_BUILT_IN = "Built-in: chime";
+const SOURCE_HINT_CUSTOM_EMPTY = "Waiting for a custom file path";
 const BUILT_IN_SOUNDS = new Set([
     "alert",
     "bell",
@@ -49,6 +46,11 @@ const SOUND_DURATIONS_MS = {
     glass: 740,
     retro: 680,
 };
+const INFO_WIDGET_HEIGHT = 46;
+const INFO_WIDGET_PADDING_X = 12;
+const INFO_WIDGET_PADDING_Y = 8;
+const INFO_WIDGET_LINE_HEIGHT = 14;
+const INFO_WIDGET_MAX_LINES = 2;
 
 let audioContext = null;
 let toastElement = null;
@@ -195,7 +197,7 @@ function normalizeWaveform(value) {
 function describeResolvedSource(soundValue, customSoundValue) {
     if (typeof soundValue === "string" && soundValue.startsWith(CUSTOM_SOUND_PREFIX)) {
         const filename = soundValue.slice(CUSTOM_SOUND_PREFIX.length);
-        return filename ? `Resolved source: repo-local file sounds/${filename}` : SOURCE_HINT_CUSTOM_EMPTY;
+        return filename ? `Discovered file: ${filename}` : SOURCE_HINT_CUSTOM_EMPTY;
     }
 
     if (soundValue === "custom") {
@@ -205,17 +207,113 @@ function describeResolvedSource(soundValue, customSoundValue) {
         }
 
         if (customValue.startsWith("/")) {
-            return `Resolved source: absolute local file ${customValue}`;
+            const filename = customValue.split("/").filter(Boolean).pop() || customValue;
+            return `Absolute file: ${filename}`;
         }
 
-        return `Resolved source: repo-local file sounds/${customValue}`;
+        return `Repo file: ${customValue}`;
     }
 
     if (BUILT_IN_SOUNDS.has(String(soundValue || ""))) {
-        return `Resolved source: built-in synth ${soundValue}`;
+        return `Built-in synth: ${soundValue}`;
     }
 
     return SOURCE_HINT_BUILT_IN;
+}
+
+function wrapInfoText(ctx, text, maxWidth) {
+    const words = String(text || "").split(/\s+/).filter(Boolean);
+    if (!words.length) {
+        return [""];
+    }
+
+    const lines = [];
+    let currentLine = words[0];
+
+    for (const word of words.slice(1)) {
+        const candidate = `${currentLine} ${word}`;
+        if (ctx.measureText(candidate).width <= maxWidth) {
+            currentLine = candidate;
+            continue;
+        }
+        lines.push(currentLine);
+        currentLine = word;
+    }
+
+    lines.push(currentLine);
+    return lines;
+}
+
+function drawRoundedRect(ctx, x, y, width, height, radius) {
+    const r = Math.max(0, Math.min(radius, width / 2, height / 2));
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + width - r, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+    ctx.lineTo(x + width, y + height - r);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+    ctx.lineTo(x + r, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+}
+
+function createInfoWidget(name, label, initialValue) {
+    return {
+        type: "custom",
+        name,
+        label,
+        value: initialValue,
+        lastWidth: 240,
+        options: {
+            serialize: false,
+        },
+        computeSize(width) {
+            const safeWidth = width || this.lastWidth || 240;
+            this.lastWidth = safeWidth;
+            if (this.hidden) {
+                return [safeWidth, 0];
+            }
+            return [safeWidth, INFO_WIDGET_HEIGHT];
+        },
+        draw(ctx, node, width, y, height) {
+            if (this.hidden) {
+                return;
+            }
+            const safeWidth = Math.max(120, width || node?.size?.[0] || 240);
+            this.lastWidth = safeWidth;
+            const safeHeight = Math.max(INFO_WIDGET_HEIGHT, height || INFO_WIDGET_HEIGHT);
+            const left = 10;
+            const top = y;
+            const innerWidth = safeWidth - left * 2;
+            const innerHeight = safeHeight - 4;
+            const textWidth = Math.max(40, innerWidth - INFO_WIDGET_PADDING_X * 2);
+
+            ctx.save();
+            ctx.fillStyle = "rgba(28, 28, 28, 0.92)";
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.06)";
+            ctx.lineWidth = 1;
+            drawRoundedRect(ctx, left, top, innerWidth, innerHeight, 14);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.font = "12px sans-serif";
+            ctx.fillStyle = "rgba(218, 218, 218, 0.88)";
+            ctx.fillText(label, left + INFO_WIDGET_PADDING_X, top + INFO_WIDGET_PADDING_Y + 10);
+
+            ctx.font = "13px sans-serif";
+            ctx.fillStyle = "rgba(245, 245, 245, 0.96)";
+            const lines = wrapInfoText(ctx, this.value, textWidth);
+            const visibleLines = lines.slice(0, INFO_WIDGET_MAX_LINES);
+            visibleLines.forEach((line, index) => {
+                const textY =
+                    top + INFO_WIDGET_PADDING_Y + 24 + index * INFO_WIDGET_LINE_HEIGHT;
+                ctx.fillText(line, left + INFO_WIDGET_PADDING_X, textY);
+            });
+            ctx.restore();
+        },
+    };
 }
 
 function getCharacterConfig(toneCharacter) {
@@ -505,10 +603,9 @@ function normalizeNodeWidgets(node) {
 function updateCustomSoundUi(node) {
     const soundWidget = getNodeWidget(node, "sound");
     const customSoundWidget = getNodeWidget(node, "custom_sound");
-    const helperWidget = getNodeWidget(node, "custom_sound_help");
     const sourceHintWidget = getNodeWidget(node, "resolved_sound_source");
 
-    if (!soundWidget || !customSoundWidget || !helperWidget || !sourceHintWidget) {
+    if (!soundWidget || !customSoundWidget || !sourceHintWidget) {
         return;
     }
 
@@ -524,14 +621,13 @@ function updateCustomSoundUi(node) {
         customSoundWidget.size = customSoundWidget.computeSize();
     }
 
-    if (isManualCustom) {
-        helperWidget.value = CUSTOM_HELP_ACTIVE;
-    } else if (isDiscoveredCustom) {
-        helperWidget.value = CUSTOM_HELP_DISCOVERED;
-    } else {
-        helperWidget.value = CUSTOM_HELP_INACTIVE;
-    }
     sourceHintWidget.value = describeResolvedSource(soundValue, customSoundWidget.value);
+    sourceHintWidget.hidden = false;
+
+    const nodeWidth = node?.size?.[0] || 240;
+    if (typeof sourceHintWidget.computeSize === "function") {
+        sourceHintWidget.size = sourceHintWidget.computeSize(nodeWidth);
+    }
 
     if (typeof node.setDirtyCanvas === "function") {
         node.setDirtyCanvas(true, true);
@@ -705,17 +801,15 @@ app.registerExtension({
                 customSoundWidget.options.placeholder = DEFAULT_CUSTOM_PLACEHOLDER;
             }
 
-            const helperWidget = this.addWidget("text", "custom_sound_help", CUSTOM_HELP_INACTIVE, null, {
-                multiline: true,
-            });
-            if (helperWidget) {
-                helperWidget.disabled = true;
-            }
-            const sourceHintWidget = this.addWidget("text", "resolved_sound_source", SOURCE_HINT_BUILT_IN, null, {
-                multiline: true,
-            });
-            if (sourceHintWidget) {
-                sourceHintWidget.disabled = true;
+            const sourceHintWidget = createInfoWidget(
+                "resolved_sound_source",
+                "Source",
+                SOURCE_HINT_BUILT_IN
+            );
+            if (typeof this.addCustomWidget === "function") {
+                this.addCustomWidget(sourceHintWidget);
+            } else if (Array.isArray(this.widgets)) {
+                this.widgets.push(sourceHintWidget);
             }
             this.addWidget("button", "Preview sound", null, () => {
                 previewNodeSound(this);
