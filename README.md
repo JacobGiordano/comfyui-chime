@@ -169,6 +169,19 @@ Clone or copy this folder into your ComfyUI `custom_nodes` directory, then resta
 
 The backend emits a `comfyui-chime.play` event through `PromptServer`, and the frontend extension uses the Web Audio API to synthesize a few built-in notification sounds without requiring external audio files.
 
+## Manual Verification Checklist
+
+Use this short pass before a release or after a polish change:
+
+1. Confirm the `Chime` node still appears under `utils/notifications`.
+2. Preview at least one built-in sound and confirm it plays immediately.
+3. Select a discovered repo-local `custom:...` sound from `sounds/` and confirm both preview and execution playback work.
+4. Set `sound=custom`, enter a repo-local filename such as `glass-tap.wav`, and confirm preview and execution playback work.
+5. Set `sound=custom`, enter a valid absolute local file path, and confirm preview and execution playback work.
+6. Turn `cooldown_ms` above `0` and confirm repeated execution of the same node is suppressed inside the cooldown window.
+7. Check `interrupt`, `overlap`, and `queue` playback modes with quick repeated triggers so their behavior still matches the descriptions.
+8. If a custom sound fails, confirm the toast message is understandable and the runtime log is concise and stage-aware when practical.
+
 ## Troubleshooting
 
 ### Node runs, but no sound plays

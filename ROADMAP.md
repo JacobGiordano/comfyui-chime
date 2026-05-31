@@ -16,13 +16,14 @@ Current roadmap for small features, polish passes, and maintenance work.
 - Repo-local starter sound pack is shipped in `sounds/`
 - Custom absolute-path playback uses temporary tokenized routes with cleanup
 - Custom sound failure messaging is more specific than before
+- Manual verification checklist is documented for release/polish passes
 
 ## Next
 
 - [x] Add lightweight runtime logging for custom sound failures
   Notes: shipped with concise failure-only backend/frontend logging for resolve, fetch, decode, and playback paths when practical.
-- [ ] Add a small manual verification checklist for release/polish passes
-  Notes: built-in playback, discovered repo-local file, absolute-path custom file, preview button, cooldown, and playback modes.
+- [x] Add a small manual verification checklist for release/polish passes
+  Notes: documented in README with built-in playback, discovered repo-local file, manual repo-local file, absolute-path custom file, preview, cooldown, playback modes, and failure feedback checks.
 - [ ] Improve custom sound path UX without reintroducing unstable layout behavior
   Notes: prefer tiny copy/placeholder wins over more custom widget complexity.
 
