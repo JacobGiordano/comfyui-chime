@@ -330,7 +330,7 @@ class ChimeNode:
                         "placeholder": "filename in sounds/, e.g. ding.mp3",
                     },
                 ),
-                "volume": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 1.0, "step": 0.05}),
+                "volume": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 2.0, "step": 0.05}),
                 "cooldown_ms": ("INT", {"default": 0, "min": 0, "max": 60000, "step": 50}),
                 "playback_mode": (PLAYBACK_MODE_CHOICES, {"default": "interrupt"}),
                 "pitch_shift": ("FLOAT", {"default": 0.0, "min": -36.0, "max": 36.0, "step": 0.5}),

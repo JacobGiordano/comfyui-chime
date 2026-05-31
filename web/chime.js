@@ -2,7 +2,8 @@ import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 
 const EXTENSION_NAME = "comfyui-chime";
-const MAX_MASTER_GAIN = 0.75;
+const MAX_VOLUME = 2.0;
+const MAX_MASTER_GAIN = 1.5;
 const CUSTOM_SOUND_PREFIX = "custom:";
 const TOAST_DURATION_MS = 3200;
 const DEFAULT_CUSTOM_PLACEHOLDER = "Used only when sound is set to custom";
@@ -234,6 +235,10 @@ function normalizeCooldownMs(value) {
     return Math.max(0, Math.min(MAX_COOLDOWN_MS, Math.round(Number(value) || 0)));
 }
 
+function normalizeVolume(value) {
+    return Math.max(0, Math.min(MAX_VOLUME, Number(value) || 0));
+}
+
 function normalizePlaybackMode(value) {
     return PLAYBACK_MODES.has(value) ? value : DEFAULT_PLAYBACK_MODE;
 }
@@ -416,6 +421,16 @@ function stopActiveCustomSounds() {
         } catch (error) {
             console.warn("[ComfyUI-Chime] Failed to stop custom sound cleanly.", error);
         }
+        try {
+            entry.sourceNode?.disconnect();
+        } catch (error) {
+            // Ignore disconnect errors.
+        }
+        try {
+            entry.gainNode?.disconnect();
+        } catch (error) {
+            // Ignore disconnect errors.
+        }
         finalizePlaybackEntry(entry, activeCustomSounds);
     }
 }
@@ -479,7 +494,7 @@ function playPattern(
     }
 
     const master = ctx.createGain();
-    const clampedVolume = Math.max(0, Math.min(1, Number(volume) || 0));
+    const clampedVolume = normalizeVolume(volume);
     master.gain.value = clampedVolume * MAX_MASTER_GAIN;
     master.connect(ctx.destination);
 
@@ -587,14 +602,29 @@ function getCustomSoundUrl(sound) {
 }
 
 async function playCustomSound(url, volume = 0.5, label = "", sourceKind = "") {
-    const clampedVolume = Math.max(0, Math.min(1, Number(volume) || 0));
+    const clampedVolume = normalizeVolume(volume);
     const audio = new Audio(url);
-    audio.volume = clampedVolume;
+    audio.volume = 1;
     audio.preload = "auto";
+    const ctx = getAudioContext();
+    let sourceNode = null;
+    let gainNode = null;
+
+    if (ctx) {
+        sourceNode = ctx.createMediaElementSource(audio);
+        gainNode = ctx.createGain();
+        gainNode.gain.value = clampedVolume;
+        sourceNode.connect(gainNode);
+        gainNode.connect(ctx.destination);
+    } else {
+        audio.volume = Math.min(clampedVolume, 1);
+    }
 
     return new Promise((resolve) => {
         const entry = {
             audio,
+            sourceNode,
+            gainNode,
             resolve,
             finished: false,
         };
@@ -603,6 +633,16 @@ async function playCustomSound(url, volume = 0.5, label = "", sourceKind = "") {
         const cleanup = () => {
             audio.onended = null;
             audio.onerror = null;
+            try {
+                sourceNode?.disconnect();
+            } catch (error) {
+                // Ignore disconnect errors.
+            }
+            try {
+                gainNode?.disconnect();
+            } catch (error) {
+                // Ignore disconnect errors.
+            }
             finalizePlaybackEntry(entry, activeCustomSounds);
         };
 

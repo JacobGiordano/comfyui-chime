@@ -27,7 +27,7 @@ Receiver-only ComfyUI custom node that plays a frontend sound when execution rea
 - `enabled`: enable or disable playback
 - `sound`: built-in sound choice or `custom`
 - `custom_sound`: filename from `sounds/` or an absolute local file path when `sound` is set to `custom`
-- `volume`: float from `0.0` to `1.0`
+- `volume`: float from `0.0` to `2.0`
 - `pitch_shift`: semitone shift for built-in synthesized sounds from `-36.0` to `36.0`
 - `tone_character`: built-in synth voicing: `default`, `warm`, `bright`, or `hollow`
 - `waveform`: built-in oscillator override: `auto`, `sine`, `triangle`, `square`, or `sawtooth`
@@ -46,10 +46,11 @@ The node also shows a read-only resolved-source hint so you can tell whether the
 
 ### Built-In Sound Modifiers
 
+- `volume` now goes up to `2.0` for a much louder ceiling when needed
 - `pitch_shift` only affects the built-in synthesized sounds
 - `tone_character` changes the built-in timbre without affecting custom audio files
 - `waveform` can force a specific oscillator shape across the built-in sounds
-- Custom sound files ignore both controls and play as-is
+- Custom sound files ignore `pitch_shift`, `tone_character`, and `waveform`, but they still follow `volume`
 
 ### Built-In Sounds
 
@@ -195,6 +196,7 @@ Use this short pass before a release or after a polish change:
 - Click once anywhere in ComfyUI, then try again. Some Web and Desktop environments block audio until the page receives user interaction.
 - Use `Preview sound` on the node after clicking once. If preview works but graph execution does not, the issue is more likely workflow placement or trigger timing than audio support.
 - Built-in synthesized sounds are the simplest baseline check. If built-ins work and a custom file does not, the problem is probably file format or file path related.
+- If you are testing the louder end of the new `volume` range, increase it gradually. Settings above `1.0` are intentionally much stronger now.
 
 ### ComfyUI Web vs ComfyUI Desktop
 
