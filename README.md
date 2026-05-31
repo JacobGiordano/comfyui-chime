@@ -212,6 +212,7 @@ Use this short pass before a release or after a polish change:
 - When a custom file resolves but still cannot decode or play in the current environment, the node now tries to name that specific file in the in-app warning instead of only showing a generic playback failure.
 - Custom sound failures now also emit concise runtime logs so resolve, fetch, decode, and playback issues are easier to tell apart during debugging.
 - Warning copy now uses more consistent terms for repo-local files, absolute paths, and custom sound failures.
+- Troubleshooting logs now also include the custom sound source kind when practical, such as discovered repo-local file, manual repo-local file, or absolute path.
 
 ### Repeated triggers behave unexpectedly
 

@@ -73,6 +73,23 @@ def build_repo_sound_url(filename: str) -> str:
     return f"/comfyui-chime/sounds/{filename}"
 
 
+def get_custom_sound_source_kind(sound: str | None, custom_sound: str | None) -> str | None:
+    sound = (sound or "").strip()
+    custom_sound = (custom_sound or "").strip()
+
+    if sound.startswith("custom:"):
+        return "discovered_repo"
+
+    if sound != CUSTOM_SOUND_OPTION or not custom_sound:
+        return None
+
+    custom_path = Path(custom_sound).expanduser()
+    if custom_path.is_absolute():
+        return "absolute_path"
+
+    return "manual_repo"
+
+
 def get_display_name_for_custom_sound(custom_sound: str | None) -> str | None:
     custom_sound = (custom_sound or "").strip()
     if not custom_sound:
@@ -222,12 +239,21 @@ def get_unresolved_custom_sound_message(custom_sound: str | None) -> str:
     return "Custom sound could not be resolved."
 
 
-def log_custom_sound_failure(stage: str, *, sound: str | None = None, custom_sound: str | None = None, detail: str) -> None:
+def log_custom_sound_failure(
+    stage: str,
+    *,
+    sound: str | None = None,
+    custom_sound: str | None = None,
+    source_kind: str | None = None,
+    detail: str,
+) -> None:
     context = []
     if sound:
         context.append(f"sound={sound}")
     if custom_sound:
         context.append(f"custom_sound={custom_sound}")
+    if source_kind:
+        context.append(f"source_kind={source_kind}")
     context_text = f" ({', '.join(context)})" if context else ""
     LOGGER.warning("custom sound failure [%s]%s: %s", stage, context_text, detail)
 
@@ -251,7 +277,7 @@ async def get_external_sound_file(request):
     entry = CUSTOM_SOUND_TOKENS.get(token)
 
     if entry is None:
-        log_custom_sound_failure("fetch", detail="custom sound token was missing or expired")
+        log_custom_sound_failure("fetch", source_kind="absolute_path", detail="custom sound token was missing or expired")
         raise web.HTTPNotFound()
 
     entry["expires_at"] = time.monotonic() + CUSTOM_SOUND_TOKEN_TTL_SECONDS
@@ -260,7 +286,12 @@ async def get_external_sound_file(request):
     sound_path = sound_path.resolve()
     if not is_supported_sound_file(sound_path):
         CUSTOM_SOUND_TOKENS.pop(token, None)
-        log_custom_sound_failure("fetch", custom_sound=str(sound_path), detail="resolved absolute-path sound was unavailable")
+        log_custom_sound_failure(
+            "fetch",
+            custom_sound=str(sound_path),
+            source_kind="absolute_path",
+            detail="resolved absolute-path sound was unavailable",
+        )
         raise web.HTTPNotFound()
 
     content_type, _ = mimetypes.guess_type(sound_path.name)
@@ -272,7 +303,12 @@ async def preview_sound_file(request):
     custom_sound = request.query.get("path")
     preview_url = resolve_preview_sound_url(custom_sound)
     if preview_url is None:
-        log_custom_sound_failure("resolve", custom_sound=custom_sound, detail="preview route could not resolve custom sound")
+        log_custom_sound_failure(
+            "resolve",
+            custom_sound=custom_sound,
+            source_kind="absolute_path" if custom_sound and Path(custom_sound).expanduser().is_absolute() else "manual_repo",
+            detail="preview route could not resolve custom sound",
+        )
         raise web.HTTPNotFound()
 
     raise web.HTTPFound(preview_url)
@@ -329,6 +365,7 @@ class ChimeNode:
             selected_sound = sound
             custom_sound_url = None
             custom_sound_label = None
+            custom_sound_source_kind = get_custom_sound_source_kind(sound, custom_sound)
             error_message = None
 
             if isinstance(sound, str) and sound.startswith("custom:"):
@@ -336,7 +373,12 @@ class ChimeNode:
                 custom_sound_label = sound.split("custom:", 1)[1] or None
                 if custom_sound_url is None:
                     error_message = get_unresolved_discovered_sound_message(sound)
-                    log_custom_sound_failure("resolve", sound=sound, detail=error_message)
+                    log_custom_sound_failure(
+                        "resolve",
+                        sound=sound,
+                        source_kind=custom_sound_source_kind,
+                        detail=error_message,
+                    )
             elif sound == CUSTOM_SOUND_OPTION:
                 custom_sound_url = resolve_custom_sound_url(custom_sound)
                 custom_sound_label = get_display_name_for_custom_sound(custom_sound)
@@ -346,6 +388,7 @@ class ChimeNode:
                         "resolve",
                         sound=sound,
                         custom_sound=custom_sound,
+                        source_kind=custom_sound_source_kind,
                         detail=error_message,
                     )
 
@@ -356,6 +399,7 @@ class ChimeNode:
                     "sound": selected_sound,
                     "custom_sound_url": custom_sound_url,
                     "custom_sound_label": custom_sound_label,
+                    "custom_sound_source_kind": custom_sound_source_kind,
                     "volume": float(volume),
                     "pitch_shift": float(pitch_shift),
                     "tone_character": tone_character,

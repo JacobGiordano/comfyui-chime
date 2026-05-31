@@ -19,6 +19,7 @@ Current roadmap for small features, polish passes, and maintenance work.
 - Manual verification checklist is documented for release/polish passes
 - Custom sound path UX now has clearer placeholder/source copy without changing layout behavior
 - UI copy and toast wording are now more consistent around repo-local files, absolute paths, and custom sound errors
+- Troubleshooting logs now include custom sound source-kind detail when practical
 
 ## Next
 
@@ -35,8 +36,8 @@ Current roadmap for small features, polish passes, and maintenance work.
   Notes: avoid bloating the built-in list just to add variety.
 - [x] Consider a tiny release/polish pass on naming consistency in UI copy and toasts
   Notes: shipped as copy-only cleanup for repo-local file, absolute-path, and custom-sound wording across toasts and warnings.
-- [ ] Add optional diagnostic detail for custom-sound troubleshooting
-  Notes: this could stay dev-facing if user-facing UI would get noisy.
+- [x] Add optional diagnostic detail for custom-sound troubleshooting
+  Notes: shipped as dev-facing logging detail for discovered repo-local, manual repo-local, and absolute-path custom sound cases.
 
 ## Notes
 

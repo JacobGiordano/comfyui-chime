@@ -61,13 +61,16 @@ const lastPlaybackAtByNode = new Map();
 const activeCustomSounds = new Set();
 const activeSynthSounds = new Set();
 
-function logCustomSoundFailure(stage, { label = "", url = "", error = null, detail = "" } = {}) {
+function logCustomSoundFailure(stage, { label = "", url = "", sourceKind = "", error = null, detail = "" } = {}) {
     const parts = [`[ComfyUI-Chime] Custom sound failure during ${stage}.`];
     if (label) {
         parts.push(`label=${label}`);
     }
     if (url) {
         parts.push(`url=${url}`);
+    }
+    if (sourceKind) {
+        parts.push(`source_kind=${sourceKind}`);
     }
     if (detail) {
         parts.push(`detail=${detail}`);
@@ -582,7 +585,7 @@ function getCustomSoundUrl(sound) {
     return `/comfyui-chime/sounds/${encodeURIComponent(filename)}`;
 }
 
-async function playCustomSound(url, volume = 0.5, label = "") {
+async function playCustomSound(url, volume = 0.5, label = "", sourceKind = "") {
     const clampedVolume = Math.max(0, Math.min(1, Number(volume) || 0));
     const audio = new Audio(url);
     audio.volume = clampedVolume;
@@ -608,6 +611,7 @@ async function playCustomSound(url, volume = 0.5, label = "") {
             logCustomSoundFailure(stage, {
                 label,
                 url,
+                sourceKind,
                 error,
                 detail: "media element reported an error",
             });
@@ -619,6 +623,7 @@ async function playCustomSound(url, volume = 0.5, label = "") {
             logCustomSoundFailure("playback", {
                 label,
                 url,
+                sourceKind,
                 error,
                 detail: error?.message || "audio.play() rejected",
             });
@@ -709,6 +714,14 @@ async function previewNodeSound(node) {
     );
     const waveform = normalizeWaveform(String(getNodeWidgetValue(node, "waveform", DEFAULT_WAVEFORM) || DEFAULT_WAVEFORM));
     const customSound = String(getNodeWidgetValue(node, "custom_sound", "") || "").trim();
+    const customSoundSourceKind =
+        typeof sound === "string" && sound.startsWith(CUSTOM_SOUND_PREFIX)
+            ? "discovered_repo"
+            : customSound.startsWith("/")
+                ? "absolute_path"
+                : customSound
+                    ? "manual_repo"
+                    : "";
     const playbackMode = normalizePlaybackMode(
         String(getNodeWidgetValue(node, "playback_mode", DEFAULT_PLAYBACK_MODE) || DEFAULT_PLAYBACK_MODE)
     );
@@ -724,6 +737,7 @@ async function previewNodeSound(node) {
             typeof sound === "string" && sound.startsWith(CUSTOM_SOUND_PREFIX)
                 ? sound.slice(CUSTOM_SOUND_PREFIX.length)
                 : customSound,
+        customSoundSourceKind,
         resolveCustomUrl: () => {
             if (typeof sound === "string" && sound.startsWith(CUSTOM_SOUND_PREFIX)) {
                 return getCustomSoundUrl(sound);
@@ -731,6 +745,7 @@ async function previewNodeSound(node) {
             if (sound === "custom") {
                 if (!customSound) {
                     logCustomSoundFailure("resolve", {
+                        sourceKind: "manual_repo",
                         detail: "preview requested without a custom path",
                     });
                     showToast("Enter a repo-local file from sounds/ or an absolute path before previewing a custom sound.", "warning");
@@ -751,13 +766,14 @@ async function playSoundRequest({
     waveform,
     playbackMode,
     customSoundLabel,
+    customSoundSourceKind,
     resolveCustomUrl,
 }) {
     const mode = normalizePlaybackMode(typeof playbackMode === "string" ? playbackMode : DEFAULT_PLAYBACK_MODE);
     const executePlayback = async () => {
         const customUrl = resolveCustomUrl();
         if (customUrl) {
-            await playCustomSound(customUrl, volume, customSoundLabel);
+            await playCustomSound(customUrl, volume, customSoundLabel, customSoundSourceKind);
             return;
         }
 
@@ -834,6 +850,8 @@ api.addEventListener("comfyui-chime.play", async (event) => {
         waveform,
         playbackMode,
         customSoundLabel: typeof detail.custom_sound_label === "string" ? detail.custom_sound_label : "",
+        customSoundSourceKind:
+            typeof detail.custom_sound_source_kind === "string" ? detail.custom_sound_source_kind : "",
         resolveCustomUrl: () => {
             if (typeof detail.custom_sound_url === "string" && detail.custom_sound_url.length > 0) {
                 return detail.custom_sound_url;
@@ -842,6 +860,8 @@ api.addEventListener("comfyui-chime.play", async (event) => {
             if (detail.sound === "custom") {
                 logCustomSoundFailure("resolve", {
                     label: typeof detail.custom_sound_label === "string" ? detail.custom_sound_label : "",
+                    sourceKind:
+                        typeof detail.custom_sound_source_kind === "string" ? detail.custom_sound_source_kind : "",
                     detail: "custom sound is selected, but no valid file was resolved",
                 });
                 if (!detail.error_message) {
