@@ -5,11 +5,13 @@ Receiver-only ComfyUI custom node that plays a frontend sound when execution rea
 ## Features
 
 - Receiver-only `Chime` node
+- Separate `Chime Synth` helper node for user-designed synth configs
 - No outputs and no passthrough
 - No global notifications
 - No TTS
 - Frontend audio playback driven by a Python-emitted event
 - Node-level `Preview sound` button for faster tuning
+- `Chime Synth` preview plus browser-local preset save/delete
 - In-app feedback when audio is blocked or a custom sound cannot be resolved
 - Node-level resolved-source hint so the selected sound path is easier to verify
 - Lightweight failure-only logging for custom sound resolve, fetch, decode, and playback issues
@@ -28,15 +30,55 @@ Receiver-only ComfyUI custom node that plays a frontend sound when execution rea
 - `sound`: built-in sound choice or `custom`
 - `custom_sound`: filename from `sounds/` or an absolute local file path when `sound` is set to `custom`
 - `volume`: float from `0.0` to `2.0`
-- `pitch_shift`: semitone shift for built-in synthesized sounds from `-36.0` to `36.0`
-- `tone_character`: built-in synth voicing: `default`, `warm`, `bright`, or `hollow`
-- `waveform`: built-in oscillator override: `auto`, `sine`, `triangle`, `square`, or `sawtooth`
 - `cooldown_ms`: minimum time in milliseconds before the same node will play again
 - `playback_mode`: choose how repeated triggers behave: `interrupt`, `overlap`, or `queue`
+
+### Optional Inputs
+
+- `synth_config`: optional `CHIME_SYNTH_CONFIG` input from `Chime Synth`
 
 When `sound` is set to a built-in option, the node keeps `custom_sound` as an optional field. When `sound` is set to `custom`, the node UI shows more explicit guidance for repo-local filenames and absolute local paths.
 
 The node also shows a read-only resolved-source hint so you can tell whether the current selection will use a built-in synth voice, a discovered repo-local file from `sounds/`, a manually entered repo-local filename from `sounds/`, or an absolute local file path.
+
+When `synth_config` is connected, `Chime` will use that synth design at execution time after checking for a resolvable custom file. The playback order is:
+
+- valid custom file
+- connected `synth_config`
+- existing built-in `sound`
+
+## Helper Node
+
+- Display name: `Chime Synth`
+- Python class: `ChimeSynthNode`
+- Category: `utils/notifications`
+- Output: `CHIME_SYNTH_CONFIG`
+
+`Chime Synth` is the separate Phase 1 helper node for designing user presets without adding more controls to the receiver-only `Chime` node.
+
+### Inputs
+
+- `preset_name`: label used for the generated config and for saving/loading presets
+- `saved_preset`: browser-local preset slot selector
+- `waveform`: oscillator shape: `sine`, `triangle`, `square`, or `sawtooth`
+- `root_pitch`: base frequency in Hz
+- `pattern`: melodic shape: `single`, `double`, `up`, `down`, `major`, `minor`, or `fifth`
+- `note_count`: how many notes to emit before the phrase ends; the selected pattern repeats as needed
+- `step_ms`: time between note starts
+- `note_ms`: note duration
+- `attack_ms`: envelope attack time
+- `decay_ms`: envelope decay time
+- `sustain_level`: sustain gain from `0.0` to `1.0`
+- `release_ms`: envelope release time
+- `volume_trim`: synth output trim from `0.0` to `2.0`
+
+### Presets And Preview
+
+- `Preview synth` plays the current `Chime Synth` settings directly in the frontend
+- `Randomize synth` generates a new synth patch inside restrained musical ranges without auto-playing it
+- `Save preset` stores the current synth design in browser-local storage for later reuse in the same ComfyUI environment
+- `Delete preset` removes the selected saved preset from browser-local storage
+- Saved presets are currently UI-local convenience data; Phase 2 is the separate roadmap item that will let `Chime` consume a `CHIME_SYNTH_CONFIG` input
 
 ### Playback Modes
 
@@ -44,13 +86,11 @@ The node also shows a read-only resolved-source hint so you can tell whether the
 - `overlap`: let multiple chimes play at the same time
 - `queue`: wait for the current chime to finish before playing the next one
 
-### Built-In Sound Modifiers
+### Playback Behavior
 
-- `volume` now goes up to `2.0` for a much louder ceiling when needed
-- `pitch_shift` only affects the built-in synthesized sounds
-- `tone_character` changes the built-in timbre without affecting custom audio files
-- `waveform` can force a specific oscillator shape across the built-in sounds
-- Custom sound files ignore `pitch_shift`, `tone_character`, and `waveform`, but they still follow `volume`
+- `volume` on `Chime` still applies to built-in sounds and custom audio files
+- `volume_trim` on `Chime Synth` shapes synth loudness inside the generated synth patch
+- Built-in sound selection on `Chime` stays intentionally simple; deeper synth shaping belongs on `Chime Synth`
 
 ### Built-In Sounds
 
@@ -181,13 +221,15 @@ The backend emits a `comfyui-chime.play` event through `PromptServer`, and the f
 Use this short pass before a release or after a polish change:
 
 1. Confirm the `Chime` node still appears under `utils/notifications`.
-2. Preview at least one built-in sound and confirm it plays immediately.
-3. Select a discovered repo-local `custom:...` sound from `sounds/` and confirm both preview and execution playback work.
-4. Set `sound=custom`, enter a repo-local filename such as `glass-tap.wav`, and confirm preview and execution playback work.
-5. Set `sound=custom`, enter a valid absolute local file path, and confirm preview and execution playback work.
-6. Turn `cooldown_ms` above `0` and confirm repeated execution of the same node is suppressed inside the cooldown window.
-7. Check `interrupt`, `overlap`, and `queue` playback modes with quick repeated triggers so their behavior still matches the descriptions.
-8. If a custom sound fails, confirm the toast message is understandable and the runtime log is concise and stage-aware when practical.
+2. Confirm `Chime Synth` appears under `utils/notifications`.
+3. Preview at least one built-in sound and confirm it plays immediately.
+4. Select a discovered repo-local `custom:...` sound from `sounds/` and confirm both preview and execution playback work.
+5. Set `sound=custom`, enter a repo-local filename such as `glass-tap.wav`, and confirm preview and execution playback work.
+6. Set `sound=custom`, enter a valid absolute local file path, and confirm preview and execution playback work.
+7. Turn `cooldown_ms` above `0` and confirm repeated execution of the same node is suppressed inside the cooldown window.
+8. Check `interrupt`, `overlap`, and `queue` playback modes with quick repeated triggers so their behavior still matches the descriptions.
+9. On `Chime Synth`, preview a custom patch, save it, reload it from the dropdown, and delete it again.
+10. If a custom sound fails, confirm the toast message is understandable and the runtime log is concise and stage-aware when practical.
 
 ## Troubleshooting
 

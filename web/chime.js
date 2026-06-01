@@ -27,12 +27,26 @@ const BUILT_IN_SOUNDS = new Set([
 const DEFAULT_PLAYBACK_MODE = "interrupt";
 const DEFAULT_TONE_CHARACTER = "default";
 const DEFAULT_WAVEFORM = "auto";
+const DEFAULT_SYNTH_PRESET = "(unsaved)";
 const MIN_PITCH_SHIFT = -36;
 const MAX_PITCH_SHIFT = 36;
 const MAX_COOLDOWN_MS = 60000;
+const MIN_SYNTH_ROOT_PITCH = 65.41;
+const MAX_SYNTH_ROOT_PITCH = 2093.0;
+const MAX_SYNTH_NOTE_COUNT = 32;
+const MAX_SYNTH_DURATION_MS = 4000;
+const MAX_SYNTH_STEP_MS = 2000;
+const MAX_SYNTH_ATTACK_MS = 2000;
+const MAX_SYNTH_DECAY_MS = 2000;
+const MAX_SYNTH_RELEASE_MS = 4000;
+const DEFAULT_SYNTH_WAVEFORM = "triangle";
+const DEFAULT_SYNTH_PATTERN = "major";
 const PLAYBACK_MODES = new Set(["interrupt", "overlap", "queue"]);
 const TONE_CHARACTERS = new Set(["default", "warm", "bright", "hollow"]);
 const WAVEFORMS = new Set(["auto", "sine", "triangle", "square", "sawtooth"]);
+const SYNTH_WAVEFORMS = new Set(["sine", "triangle", "square", "sawtooth"]);
+const SYNTH_PATTERNS = new Set(["single", "double", "up", "down", "major", "minor", "fifth"]);
+const SYNTH_PRESET_STORAGE_KEY = "comfyui-chime.synth-presets.v1";
 const SOUND_DURATIONS_MS = {
     alert: 520,
     beacon: 980,
@@ -249,6 +263,50 @@ function normalizeToneCharacter(value) {
 
 function normalizeWaveform(value) {
     return WAVEFORMS.has(value) ? value : DEFAULT_WAVEFORM;
+}
+
+function normalizeSynthWaveform(value) {
+    return SYNTH_WAVEFORMS.has(value) ? value : DEFAULT_SYNTH_WAVEFORM;
+}
+
+function normalizeSynthPattern(value) {
+    return SYNTH_PATTERNS.has(value) ? value : DEFAULT_SYNTH_PATTERN;
+}
+
+function normalizeSynthRootPitch(value) {
+    return Math.max(MIN_SYNTH_ROOT_PITCH, Math.min(MAX_SYNTH_ROOT_PITCH, Number(value) || 0));
+}
+
+function normalizeSynthNoteCount(value) {
+    return Math.max(1, Math.min(MAX_SYNTH_NOTE_COUNT, Math.round(Number(value) || 0)));
+}
+
+function normalizeSynthDurationMs(value) {
+    return Math.max(20, Math.min(MAX_SYNTH_DURATION_MS, Math.round(Number(value) || 0)));
+}
+
+function normalizeSynthStepMs(value) {
+    return Math.max(40, Math.min(MAX_SYNTH_STEP_MS, Math.round(Number(value) || 0)));
+}
+
+function normalizeSynthAttackMs(value) {
+    return Math.max(0, Math.min(MAX_SYNTH_ATTACK_MS, Math.round(Number(value) || 0)));
+}
+
+function normalizeSynthDecayMs(value) {
+    return Math.max(0, Math.min(MAX_SYNTH_DECAY_MS, Math.round(Number(value) || 0)));
+}
+
+function normalizeSynthReleaseMs(value) {
+    return Math.max(10, Math.min(MAX_SYNTH_RELEASE_MS, Math.round(Number(value) || 0)));
+}
+
+function normalizeSustainLevel(value) {
+    return Math.max(0, Math.min(1, Number(value) || 0));
+}
+
+function normalizeSynthVolumeTrim(value) {
+    return normalizeVolume(value);
 }
 
 function describeResolvedSource(soundValue, customSoundValue) {
@@ -596,6 +654,147 @@ function playPattern(
     });
 }
 
+function getSynthPatternSteps(pattern) {
+    switch (pattern) {
+        case "single":
+            return [0];
+        case "double":
+            return [0, 7];
+        case "up":
+            return [0, 4, 7, 12];
+        case "down":
+            return [12, 7, 4, 0];
+        case "minor":
+            return [0, 3, 7, 10];
+        case "fifth":
+            return [0, 7, 12];
+        case "major":
+        default:
+            return [0, 4, 7, 11];
+    }
+}
+
+function buildSynthSequence(pattern, noteCount) {
+    const motif = getSynthPatternSteps(pattern);
+    const totalNotes = normalizeSynthNoteCount(noteCount);
+    const sequence = [];
+
+    for (let index = 0; index < totalNotes; index += 1) {
+        sequence.push(motif[index % motif.length]);
+    }
+
+    return sequence;
+}
+
+function scheduleSynthTone(ctx, destination, when, frequency, durationSeconds, waveform, peakGain, envelope) {
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const attackSeconds = Math.max(0, envelope.attackMs / 1000);
+    const decaySeconds = Math.max(0, envelope.decayMs / 1000);
+    const releaseSeconds = Math.max(0.01, envelope.releaseMs / 1000);
+    const sustainLevel = Math.max(0, Math.min(1, envelope.sustainLevel));
+    const peak = Math.max(0.0001, peakGain);
+    const sustainGain = Math.max(0.0001, peak * sustainLevel);
+    const noteEnd = when + Math.max(0.02, durationSeconds);
+    const attackEnd = when + attackSeconds;
+    const decayEnd = Math.min(noteEnd, attackEnd + decaySeconds);
+    const releaseStart = Math.max(decayEnd, noteEnd - releaseSeconds);
+
+    oscillator.type = waveform;
+    oscillator.frequency.setValueAtTime(frequency, when);
+
+    gain.gain.setValueAtTime(0.0001, when);
+    if (attackSeconds <= 0) {
+        gain.gain.setValueAtTime(peak, when);
+    } else {
+        gain.gain.linearRampToValueAtTime(peak, attackEnd);
+    }
+    if (decaySeconds <= 0) {
+        gain.gain.setValueAtTime(sustainGain, attackEnd);
+    } else {
+        gain.gain.linearRampToValueAtTime(sustainGain, decayEnd);
+    }
+    gain.gain.setValueAtTime(sustainGain, releaseStart);
+    gain.gain.linearRampToValueAtTime(0.0001, noteEnd);
+
+    oscillator.connect(gain);
+    gain.connect(destination);
+    oscillator.start(when);
+    oscillator.stop(noteEnd + 0.02);
+
+    return { oscillator, gain };
+}
+
+function playSynthConfig(config) {
+    const ctx = getAudioContext();
+    if (!ctx) {
+        console.warn("[ComfyUI-Chime] Web Audio API is not available in this environment.");
+        showToast("Web Audio is not available in this ComfyUI environment.", "warning");
+        return Promise.resolve();
+    }
+
+    const waveform = normalizeSynthWaveform(config?.waveform);
+    const rootPitch = normalizeSynthRootPitch(config?.root_pitch);
+    const stepMs = normalizeSynthStepMs(config?.step_ms);
+    const noteMs = normalizeSynthDurationMs(config?.note_ms);
+    const envelope = {
+        attackMs: normalizeSynthAttackMs(config?.attack_ms),
+        decayMs: normalizeSynthDecayMs(config?.decay_ms),
+        sustainLevel: normalizeSustainLevel(config?.sustain_level),
+        releaseMs: normalizeSynthReleaseMs(config?.release_ms),
+    };
+    const volumeTrim = normalizeSynthVolumeTrim(config?.volume_trim);
+    const pattern = normalizeSynthPattern(config?.pattern);
+    const steps = buildSynthSequence(pattern, config?.note_count);
+    const master = ctx.createGain();
+    const now = ctx.currentTime + 0.01;
+    const tones = [];
+    const stepSeconds = stepMs / 1000;
+    const noteSeconds = noteMs / 1000;
+    const peakGain = Math.max(0.0001, volumeTrim * 0.45);
+
+    master.gain.value = Math.min(volumeTrim * 1.15, MAX_MASTER_GAIN);
+    master.connect(ctx.destination);
+
+    for (let index = 0; index < steps.length; index += 1) {
+        const semitoneOffset = steps[index];
+        const frequency = rootPitch * Math.pow(2, semitoneOffset / 12);
+        const startTime = now + index * stepSeconds;
+        tones.push(
+            scheduleSynthTone(
+                ctx,
+                master,
+                startTime,
+                frequency,
+                noteSeconds,
+                waveform,
+                peakGain,
+                envelope
+            )
+        );
+    }
+
+    const totalDurationMs = Math.max(1, Math.round((steps.length - 1) * stepMs + noteMs));
+
+    return new Promise((resolve) => {
+        const entry = {
+            tones,
+            resolve,
+            finished: false,
+            timeoutId: null,
+        };
+        activeSynthSounds.add(entry);
+        entry.timeoutId = window.setTimeout(() => {
+            try {
+                master.disconnect();
+            } catch (error) {
+                // Ignore disconnect errors when the audio graph is already gone.
+            }
+            finalizePlaybackEntry(entry, activeSynthSounds);
+        }, totalDurationMs + 50);
+    });
+}
+
 function getCustomSoundUrl(sound) {
     const filename = sound.slice(CUSTOM_SOUND_PREFIX.length);
     return `/comfyui-chime/sounds/${encodeURIComponent(filename)}`;
@@ -683,6 +882,189 @@ function getNodeWidget(node, name) {
     return node?.widgets?.find((entry) => entry?.name === name) ?? null;
 }
 
+function isInputConnected(node, inputName) {
+    const input = node?.inputs?.find((entry) => entry?.name === inputName);
+    if (!input) {
+        return false;
+    }
+    if (Array.isArray(input.links)) {
+        return input.links.length > 0;
+    }
+    return input.link != null;
+}
+
+function isChimeSynthNode(node) {
+    if (!node) {
+        return false;
+    }
+
+    const candidates = [
+        node.type,
+        node.comfyClass,
+        node.constructor?.comfyClass,
+        node.title,
+    ]
+        .filter(Boolean)
+        .map((value) => String(value));
+
+    if (candidates.some((value) => value === "ChimeSynthNode" || value === "Chime Synth")) {
+        return true;
+    }
+
+    return (
+        getNodeWidget(node, "root_pitch") &&
+        getNodeWidget(node, "pattern") &&
+        getNodeWidget(node, "note_count") &&
+        getNodeWidget(node, "volume_trim")
+    );
+}
+
+function getGraphLinkById(graph, linkId) {
+    if (!graph || linkId == null) {
+        return null;
+    }
+
+    const links = graph.links;
+    if (!links) {
+        return null;
+    }
+
+    if (typeof links.get === "function") {
+        return links.get(linkId) ?? links.get(String(linkId)) ?? null;
+    }
+
+    return links[linkId] ?? links[String(linkId)] ?? null;
+}
+
+function getGraphNodeById(graph, nodeId) {
+    if (!graph || nodeId == null) {
+        return null;
+    }
+
+    if (typeof graph.getNodeById === "function") {
+        const resolved = graph.getNodeById(nodeId) ?? graph.getNodeById(String(nodeId));
+        if (resolved) {
+            return resolved;
+        }
+    }
+
+    return graph._nodes_by_id?.[nodeId] ?? graph._nodes_by_id?.[String(nodeId)] ?? null;
+}
+
+function resolveConnectedSynthConfig(node) {
+    const input = node?.inputs?.find((entry) => entry?.name === "synth_config");
+    const linkId = Array.isArray(input?.links) ? input.links[0] : input?.link;
+    if (linkId == null) {
+        return null;
+    }
+
+    const graph = app?.graph;
+    const link = getGraphLinkById(graph, linkId);
+    const originId = link?.origin_id;
+    if (originId == null) {
+        return null;
+    }
+
+    const originNode = getGraphNodeById(graph, originId);
+    if (!isChimeSynthNode(originNode)) {
+        return null;
+    }
+
+    normalizeSynthNodeWidgets(originNode);
+    return buildSynthConfigFromNode(originNode);
+}
+
+function readSynthPresetStore() {
+    try {
+        const raw = window.localStorage.getItem(SYNTH_PRESET_STORAGE_KEY);
+        if (!raw) {
+            return {};
+        }
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === "object" ? parsed : {};
+    } catch (error) {
+        console.warn("[ComfyUI-Chime] Failed to read synth presets from localStorage.", error);
+        return {};
+    }
+}
+
+function writeSynthPresetStore(store) {
+    try {
+        window.localStorage.setItem(SYNTH_PRESET_STORAGE_KEY, JSON.stringify(store));
+    } catch (error) {
+        console.warn("[ComfyUI-Chime] Failed to write synth presets to localStorage.", error);
+        showToast("Could not save synth preset in this browser session.", "warning");
+    }
+}
+
+function listSynthPresetNames() {
+    return Object.keys(readSynthPresetStore()).sort((left, right) => left.localeCompare(right));
+}
+
+function buildSynthConfigFromNode(node) {
+    return {
+        version: 1,
+        preset_name: String(getNodeWidgetValue(node, "preset_name", "Custom Synth") || "").trim() || "Custom Synth",
+        saved_preset: String(getNodeWidgetValue(node, "saved_preset", DEFAULT_SYNTH_PRESET) || DEFAULT_SYNTH_PRESET),
+        waveform: normalizeSynthWaveform(String(getNodeWidgetValue(node, "waveform", DEFAULT_SYNTH_WAVEFORM) || "")),
+        root_pitch: normalizeSynthRootPitch(getNodeWidgetValue(node, "root_pitch", 587.33)),
+        pattern: normalizeSynthPattern(String(getNodeWidgetValue(node, "pattern", DEFAULT_SYNTH_PATTERN) || "")),
+        note_count: normalizeSynthNoteCount(getNodeWidgetValue(node, "note_count", 4)),
+        step_ms: normalizeSynthStepMs(getNodeWidgetValue(node, "step_ms", 140)),
+        note_ms: normalizeSynthDurationMs(getNodeWidgetValue(node, "note_ms", 220)),
+        attack_ms: normalizeSynthAttackMs(getNodeWidgetValue(node, "attack_ms", 10)),
+        decay_ms: normalizeSynthDecayMs(getNodeWidgetValue(node, "decay_ms", 80)),
+        sustain_level: normalizeSustainLevel(getNodeWidgetValue(node, "sustain_level", 0.45)),
+        release_ms: normalizeSynthReleaseMs(getNodeWidgetValue(node, "release_ms", 240)),
+        volume_trim: normalizeSynthVolumeTrim(getNodeWidgetValue(node, "volume_trim", 0.75)),
+    };
+}
+
+function setWidgetValue(widget, value) {
+    if (!widget) {
+        return;
+    }
+    widget.value = value;
+    if (typeof widget.callback === "function") {
+        widget.callback(value);
+    }
+}
+
+function randomChoice(values) {
+    return values[Math.floor(Math.random() * values.length)];
+}
+
+function randomInt(min, max, step = 1) {
+    const safeStep = Math.max(1, step);
+    const totalSteps = Math.floor((max - min) / safeStep);
+    return min + Math.floor(Math.random() * (totalSteps + 1)) * safeStep;
+}
+
+function randomFloat(min, max, step = 0.01) {
+    const totalSteps = Math.floor((max - min) / step);
+    const raw = min + Math.floor(Math.random() * (totalSteps + 1)) * step;
+    return Number(raw.toFixed(4));
+}
+
+function randomizeSynthNode(node) {
+    setWidgetValue(getNodeWidget(node, "waveform"), randomChoice(["sine", "triangle", "square", "sawtooth"]));
+    setWidgetValue(getNodeWidget(node, "pattern"), randomChoice(["single", "double", "up", "down", "major", "minor", "fifth"]));
+    setWidgetValue(getNodeWidget(node, "note_count"), randomInt(2, 12, 1));
+    setWidgetValue(getNodeWidget(node, "root_pitch"), randomFloat(196.0, 987.77, 0.01));
+    setWidgetValue(getNodeWidget(node, "step_ms"), randomInt(80, 280, 10));
+    setWidgetValue(getNodeWidget(node, "note_ms"), randomInt(120, 420, 10));
+    setWidgetValue(getNodeWidget(node, "attack_ms"), randomInt(0, 80, 5));
+    setWidgetValue(getNodeWidget(node, "decay_ms"), randomInt(40, 220, 5));
+    setWidgetValue(getNodeWidget(node, "sustain_level"), randomFloat(0.2, 0.75, 0.01));
+    setWidgetValue(getNodeWidget(node, "release_ms"), randomInt(120, 420, 10));
+    setWidgetValue(getNodeWidget(node, "volume_trim"), randomFloat(0.35, 1.1, 0.05));
+
+    normalizeSynthNodeWidgets(node);
+    if (typeof node.setDirtyCanvas === "function") {
+        node.setDirtyCanvas(true, true);
+    }
+}
+
 function normalizeNodeWidgets(node) {
     const cooldownWidget = getNodeWidget(node, "cooldown_ms");
     if (cooldownWidget) {
@@ -693,20 +1075,62 @@ function normalizeNodeWidgets(node) {
     if (playbackModeWidget) {
         playbackModeWidget.value = normalizePlaybackMode(String(playbackModeWidget.value || ""));
     }
+}
 
-    const pitchShiftWidget = getNodeWidget(node, "pitch_shift");
-    if (pitchShiftWidget) {
-        pitchShiftWidget.value = normalizePitchShift(pitchShiftWidget.value);
-    }
-
-    const toneCharacterWidget = getNodeWidget(node, "tone_character");
-    if (toneCharacterWidget) {
-        toneCharacterWidget.value = normalizeToneCharacter(String(toneCharacterWidget.value || ""));
-    }
-
+function normalizeSynthNodeWidgets(node) {
     const waveformWidget = getNodeWidget(node, "waveform");
     if (waveformWidget) {
-        waveformWidget.value = normalizeWaveform(String(waveformWidget.value || ""));
+        waveformWidget.value = normalizeSynthWaveform(String(waveformWidget.value || ""));
+    }
+
+    const patternWidget = getNodeWidget(node, "pattern");
+    if (patternWidget) {
+        patternWidget.value = normalizeSynthPattern(String(patternWidget.value || ""));
+    }
+
+    const rootPitchWidget = getNodeWidget(node, "root_pitch");
+    if (rootPitchWidget) {
+        rootPitchWidget.value = normalizeSynthRootPitch(rootPitchWidget.value);
+    }
+
+    const noteCountWidget = getNodeWidget(node, "note_count");
+    if (noteCountWidget) {
+        noteCountWidget.value = normalizeSynthNoteCount(noteCountWidget.value);
+    }
+
+    const stepWidget = getNodeWidget(node, "step_ms");
+    if (stepWidget) {
+        stepWidget.value = normalizeSynthStepMs(stepWidget.value);
+    }
+
+    const noteWidget = getNodeWidget(node, "note_ms");
+    if (noteWidget) {
+        noteWidget.value = normalizeSynthDurationMs(noteWidget.value);
+    }
+
+    const attackWidget = getNodeWidget(node, "attack_ms");
+    if (attackWidget) {
+        attackWidget.value = normalizeSynthAttackMs(attackWidget.value);
+    }
+
+    const decayWidget = getNodeWidget(node, "decay_ms");
+    if (decayWidget) {
+        decayWidget.value = normalizeSynthDecayMs(decayWidget.value);
+    }
+
+    const sustainWidget = getNodeWidget(node, "sustain_level");
+    if (sustainWidget) {
+        sustainWidget.value = normalizeSustainLevel(sustainWidget.value);
+    }
+
+    const releaseWidget = getNodeWidget(node, "release_ms");
+    if (releaseWidget) {
+        releaseWidget.value = normalizeSynthReleaseMs(releaseWidget.value);
+    }
+
+    const volumeWidget = getNodeWidget(node, "volume_trim");
+    if (volumeWidget) {
+        volumeWidget.value = normalizeSynthVolumeTrim(volumeWidget.value);
     }
 }
 
@@ -720,8 +1144,8 @@ function updateCustomSoundUi(node) {
     }
 
     const soundValue = String(soundWidget.value || "");
+    const synthConfigConnected = isInputConnected(node, "synth_config");
     const isManualCustom = soundValue === "custom";
-    const isDiscoveredCustom = soundValue.startsWith(CUSTOM_SOUND_PREFIX);
 
     customSoundWidget.options = customSoundWidget.options || {};
     customSoundWidget.options.placeholder = isManualCustom ? CUSTOM_INPUT_PLACEHOLDER : DEFAULT_CUSTOM_PLACEHOLDER;
@@ -731,7 +1155,13 @@ function updateCustomSoundUi(node) {
         customSoundWidget.size = customSoundWidget.computeSize();
     }
 
-    sourceHintWidget.value = describeResolvedSource(soundValue, customSoundWidget.value);
+    if (synthConfigConnected && soundValue === "custom" && !String(customSoundWidget.value || "").trim()) {
+        sourceHintWidget.value = "Connected synth input will be used";
+    } else if (synthConfigConnected) {
+        sourceHintWidget.value = "Connected synth input overrides built-in sound selection";
+    } else {
+        sourceHintWidget.value = describeResolvedSource(soundValue, customSoundWidget.value);
+    }
     sourceHintWidget.hidden = false;
 
     const nodeWidth = node?.size?.[0] || 240;
@@ -744,16 +1174,90 @@ function updateCustomSoundUi(node) {
     }
 }
 
+function refreshSynthPresetOptions(node, selectedName = null) {
+    const presetWidget = getNodeWidget(node, "saved_preset");
+    if (!presetWidget) {
+        return;
+    }
+
+    const names = listSynthPresetNames();
+    const values = [DEFAULT_SYNTH_PRESET, ...names];
+    presetWidget.options = presetWidget.options || {};
+    presetWidget.options.values = values;
+
+    const currentValue = String(selectedName ?? presetWidget.value ?? DEFAULT_SYNTH_PRESET);
+    presetWidget.value = values.includes(currentValue) ? currentValue : DEFAULT_SYNTH_PRESET;
+}
+
+function loadSynthPresetIntoNode(node, presetName) {
+    const presetStore = readSynthPresetStore();
+    const preset = presetStore[presetName];
+    if (!preset) {
+        refreshSynthPresetOptions(node, DEFAULT_SYNTH_PRESET);
+        showToast(`Saved synth preset “${presetName}” was not found.`, "warning");
+        return;
+    }
+
+    setWidgetValue(getNodeWidget(node, "preset_name"), preset.preset_name || presetName);
+    setWidgetValue(getNodeWidget(node, "waveform"), normalizeSynthWaveform(preset.waveform));
+    setWidgetValue(getNodeWidget(node, "root_pitch"), normalizeSynthRootPitch(preset.root_pitch));
+    setWidgetValue(getNodeWidget(node, "pattern"), normalizeSynthPattern(preset.pattern));
+    setWidgetValue(getNodeWidget(node, "note_count"), normalizeSynthNoteCount(preset.note_count));
+    setWidgetValue(getNodeWidget(node, "step_ms"), normalizeSynthStepMs(preset.step_ms));
+    setWidgetValue(getNodeWidget(node, "note_ms"), normalizeSynthDurationMs(preset.note_ms));
+    setWidgetValue(getNodeWidget(node, "attack_ms"), normalizeSynthAttackMs(preset.attack_ms));
+    setWidgetValue(getNodeWidget(node, "decay_ms"), normalizeSynthDecayMs(preset.decay_ms));
+    setWidgetValue(getNodeWidget(node, "sustain_level"), normalizeSustainLevel(preset.sustain_level));
+    setWidgetValue(getNodeWidget(node, "release_ms"), normalizeSynthReleaseMs(preset.release_ms));
+    setWidgetValue(getNodeWidget(node, "volume_trim"), normalizeSynthVolumeTrim(preset.volume_trim));
+    refreshSynthPresetOptions(node, presetName);
+    if (typeof node.setDirtyCanvas === "function") {
+        node.setDirtyCanvas(true, true);
+    }
+}
+
+function saveSynthPresetFromNode(node) {
+    const config = buildSynthConfigFromNode(node);
+    const presetName = config.preset_name.trim();
+    if (!presetName) {
+        showToast("Enter a preset name before saving this Chime Synth preset.", "warning");
+        return;
+    }
+
+    const presetStore = readSynthPresetStore();
+    presetStore[presetName] = config;
+    writeSynthPresetStore(presetStore);
+    refreshSynthPresetOptions(node, presetName);
+    showToast(`Saved Chime Synth preset “${presetName}”.`, "info");
+}
+
+function deleteSynthPresetFromNode(node) {
+    const presetWidget = getNodeWidget(node, "saved_preset");
+    const presetName = String(presetWidget?.value || "");
+    if (!presetName || presetName === DEFAULT_SYNTH_PRESET) {
+        showToast("Select a saved Chime Synth preset before deleting it.", "warning");
+        return;
+    }
+
+    const presetStore = readSynthPresetStore();
+    if (!presetStore[presetName]) {
+        refreshSynthPresetOptions(node, DEFAULT_SYNTH_PRESET);
+        showToast(`Saved synth preset “${presetName}” was already missing.`, "warning");
+        return;
+    }
+
+    delete presetStore[presetName];
+    writeSynthPresetStore(presetStore);
+    refreshSynthPresetOptions(node, DEFAULT_SYNTH_PRESET);
+    showToast(`Deleted Chime Synth preset “${presetName}”.`, "info");
+}
+
 async function previewNodeSound(node) {
     await unlockAudio();
 
     const sound = getNodeWidgetValue(node, "sound", "chime");
     const volume = Number(getNodeWidgetValue(node, "volume", 0.5)) || 0;
-    const pitchShift = normalizePitchShift(getNodeWidgetValue(node, "pitch_shift", 0.0));
-    const toneCharacter = normalizeToneCharacter(
-        String(getNodeWidgetValue(node, "tone_character", DEFAULT_TONE_CHARACTER) || DEFAULT_TONE_CHARACTER)
-    );
-    const waveform = normalizeWaveform(String(getNodeWidgetValue(node, "waveform", DEFAULT_WAVEFORM) || DEFAULT_WAVEFORM));
+    const synthConfig = resolveConnectedSynthConfig(node);
     const customSound = String(getNodeWidgetValue(node, "custom_sound", "") || "").trim();
     const customSoundSourceKind =
         typeof sound === "string" && sound.startsWith(CUSTOM_SOUND_PREFIX)
@@ -770,10 +1274,8 @@ async function previewNodeSound(node) {
     await playSoundRequest({
         sound,
         volume,
-        pitchShift,
-        toneCharacter,
-        waveform,
         playbackMode,
+        synthConfig,
         customSoundLabel:
             typeof sound === "string" && sound.startsWith(CUSTOM_SOUND_PREFIX)
                 ? sound.slice(CUSTOM_SOUND_PREFIX.length)
@@ -785,11 +1287,13 @@ async function previewNodeSound(node) {
             }
             if (sound === "custom") {
                 if (!customSound) {
-                    logCustomSoundFailure("resolve", {
-                        sourceKind: "manual_repo",
-                        detail: "preview requested without a custom path",
-                    });
-                    showToast("Enter a repo-local file from sounds/ or an absolute path before previewing a custom sound.", "warning");
+                    if (!synthConfig) {
+                        logCustomSoundFailure("resolve", {
+                            sourceKind: "manual_repo",
+                            detail: "preview requested without a custom path",
+                        });
+                        showToast("Enter a repo-local file from sounds/ or an absolute path before previewing a custom sound.", "warning");
+                    }
                     return null;
                 }
                 return `/comfyui-chime/preview?path=${encodeURIComponent(customSound)}`;
@@ -799,13 +1303,17 @@ async function previewNodeSound(node) {
     });
 }
 
+async function previewSynthNode(node) {
+    await unlockAudio();
+    normalizeSynthNodeWidgets(node);
+    await playSynthConfig(buildSynthConfigFromNode(node));
+}
+
 async function playSoundRequest({
     sound,
     volume,
-    pitchShift,
-    toneCharacter,
-    waveform,
     playbackMode,
+    synthConfig,
     customSoundLabel,
     customSoundSourceKind,
     resolveCustomUrl,
@@ -819,10 +1327,18 @@ async function playSoundRequest({
         }
 
         if (sound === "custom") {
+            if (synthConfig && typeof synthConfig === "object") {
+                await playSynthConfig(synthConfig);
+            }
             return;
         }
 
-        await playPattern(sound, volume, pitchShift, toneCharacter, waveform);
+        if (synthConfig && typeof synthConfig === "object") {
+            await playSynthConfig(synthConfig);
+            return;
+        }
+
+        await playPattern(sound, volume);
     };
 
     if (mode === "interrupt") {
@@ -869,11 +1385,6 @@ api.addEventListener("comfyui-chime.play", async (event) => {
         typeof detail.playback_mode === "string" ? detail.playback_mode : DEFAULT_PLAYBACK_MODE
     );
     const cooldownMs = normalizeCooldownMs(detail.cooldown_ms);
-    const pitchShift = normalizePitchShift(detail.pitch_shift);
-    const toneCharacter = normalizeToneCharacter(
-        typeof detail.tone_character === "string" ? detail.tone_character : DEFAULT_TONE_CHARACTER
-    );
-    const waveform = normalizeWaveform(typeof detail.waveform === "string" ? detail.waveform : DEFAULT_WAVEFORM);
 
     if (typeof detail.error_message === "string" && detail.error_message.length > 0) {
         showToast(detail.error_message, "warning");
@@ -886,10 +1397,9 @@ api.addEventListener("comfyui-chime.play", async (event) => {
     await playSoundRequest({
         sound: detail.sound,
         volume: detail.volume,
-        pitchShift,
-        toneCharacter,
-        waveform,
         playbackMode,
+        synthConfig:
+            detail.synth_config && typeof detail.synth_config === "object" ? detail.synth_config : null,
         customSoundLabel: typeof detail.custom_sound_label === "string" ? detail.custom_sound_label : "",
         customSoundSourceKind:
             typeof detail.custom_sound_source_kind === "string" ? detail.custom_sound_source_kind : "",
@@ -923,13 +1433,48 @@ api.addEventListener("comfyui-chime.play", async (event) => {
 app.registerExtension({
     name: EXTENSION_NAME,
     async beforeRegisterNodeDef(nodeType, nodeData) {
-        if (nodeData?.name !== "ChimeNode") {
+        if (nodeData?.name !== "ChimeNode" && nodeData?.name !== "ChimeSynthNode") {
             return;
         }
 
         const onNodeCreated = nodeType.prototype.onNodeCreated;
         nodeType.prototype.onNodeCreated = function () {
             const result = onNodeCreated ? onNodeCreated.apply(this, arguments) : undefined;
+
+            if (nodeData?.name === "ChimeSynthNode") {
+                const savedPresetWidget = getNodeWidget(this, "saved_preset");
+                if (savedPresetWidget) {
+                    savedPresetWidget.options = savedPresetWidget.options || {};
+                    savedPresetWidget.options.values = [DEFAULT_SYNTH_PRESET, ...listSynthPresetNames()];
+                    const originalCallback = savedPresetWidget.callback;
+                    savedPresetWidget.callback = (...args) => {
+                        if (typeof originalCallback === "function") {
+                            originalCallback.apply(savedPresetWidget, args);
+                        }
+                        const selectedName = String(savedPresetWidget.value || DEFAULT_SYNTH_PRESET);
+                        if (selectedName !== DEFAULT_SYNTH_PRESET) {
+                            loadSynthPresetIntoNode(this, selectedName);
+                        }
+                    };
+                }
+
+                this.addWidget("button", "Preview synth", null, () => {
+                    previewSynthNode(this);
+                });
+                this.addWidget("button", "Randomize synth", null, () => {
+                    randomizeSynthNode(this);
+                });
+                this.addWidget("button", "Save preset", null, () => {
+                    saveSynthPresetFromNode(this);
+                });
+                this.addWidget("button", "Delete preset", null, () => {
+                    deleteSynthPresetFromNode(this);
+                });
+
+                normalizeSynthNodeWidgets(this);
+                refreshSynthPresetOptions(this, String(savedPresetWidget?.value || DEFAULT_SYNTH_PRESET));
+                return result;
+            }
 
             const soundWidget = getNodeWidget(this, "sound");
             const customSoundWidget = getNodeWidget(this, "custom_sound");

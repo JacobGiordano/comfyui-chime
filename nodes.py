@@ -38,6 +38,8 @@ CUSTOM_SOUND_OPTION = "custom"
 PLAYBACK_MODE_CHOICES = ["interrupt", "overlap", "queue"]
 TONE_CHARACTER_CHOICES = ["default", "warm", "bright", "hollow"]
 WAVEFORM_CHOICES = ["auto", "sine", "triangle", "square", "sawtooth"]
+SYNTH_WAVEFORM_CHOICES = ["sine", "triangle", "square", "sawtooth"]
+SYNTH_PATTERN_CHOICES = ["single", "double", "up", "down", "major", "minor", "fifth"]
 SUPPORTED_SOUND_EXTENSIONS = {".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac", ".webm", ".aiff", ".aif"}
 CUSTOM_SOUND_TOKEN_TTL_SECONDS = 60 * 30
 MAX_CUSTOM_SOUND_TOKENS = 256
@@ -333,9 +335,9 @@ class ChimeNode:
                 "volume": ("FLOAT", {"default": 0.5, "min": 0.0, "max": 2.0, "step": 0.05}),
                 "cooldown_ms": ("INT", {"default": 0, "min": 0, "max": 60000, "step": 50}),
                 "playback_mode": (PLAYBACK_MODE_CHOICES, {"default": "interrupt"}),
-                "pitch_shift": ("FLOAT", {"default": 0.0, "min": -36.0, "max": 36.0, "step": 0.5}),
-                "tone_character": (TONE_CHARACTER_CHOICES, {"default": "default"}),
-                "waveform": (WAVEFORM_CHOICES, {"default": "auto"}),
+            },
+            "optional": {
+                "synth_config": ("CHIME_SYNTH_CONFIG", {}),
             },
             "hidden": {
                 "unique_id": "UNIQUE_ID",
@@ -356,9 +358,7 @@ class ChimeNode:
         volume,
         cooldown_ms,
         playback_mode,
-        pitch_shift,
-        tone_character,
-        waveform,
+        synth_config=None,
         unique_id=None,
     ):
         if enabled:
@@ -366,6 +366,7 @@ class ChimeNode:
             custom_sound_url = None
             custom_sound_label = None
             custom_sound_source_kind = get_custom_sound_source_kind(sound, custom_sound)
+            resolved_synth_config = synth_config if isinstance(synth_config, dict) else None
             error_message = None
 
             if isinstance(sound, str) and sound.startswith("custom:"):
@@ -400,10 +401,8 @@ class ChimeNode:
                     "custom_sound_url": custom_sound_url,
                     "custom_sound_label": custom_sound_label,
                     "custom_sound_source_kind": custom_sound_source_kind,
+                    "synth_config": resolved_synth_config,
                     "volume": float(volume),
-                    "pitch_shift": float(pitch_shift),
-                    "tone_character": tone_character,
-                    "waveform": waveform,
                     "cooldown_ms": int(cooldown_ms),
                     "playback_mode": playback_mode,
                     "error_message": error_message,
@@ -413,10 +412,80 @@ class ChimeNode:
         return ()
 
 
+class ChimeSynthNode:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "preset_name": (
+                    "STRING",
+                    {
+                        "default": "Custom Synth",
+                        "multiline": False,
+                        "placeholder": "Preset label for preview/save",
+                    },
+                ),
+                "saved_preset": (["(unsaved)"], {"default": "(unsaved)"}),
+                "waveform": (SYNTH_WAVEFORM_CHOICES, {"default": "triangle"}),
+                "root_pitch": ("FLOAT", {"default": 587.33, "min": 65.41, "max": 2093.0, "step": 0.01}),
+                "pattern": (SYNTH_PATTERN_CHOICES, {"default": "major"}),
+                "note_count": ("INT", {"default": 4, "min": 1, "max": 32, "step": 1}),
+                "step_ms": ("INT", {"default": 140, "min": 40, "max": 2000, "step": 10}),
+                "note_ms": ("INT", {"default": 220, "min": 20, "max": 4000, "step": 10}),
+                "attack_ms": ("INT", {"default": 10, "min": 0, "max": 2000, "step": 5}),
+                "decay_ms": ("INT", {"default": 80, "min": 0, "max": 2000, "step": 5}),
+                "sustain_level": ("FLOAT", {"default": 0.45, "min": 0.0, "max": 1.0, "step": 0.01}),
+                "release_ms": ("INT", {"default": 240, "min": 10, "max": 4000, "step": 10}),
+                "volume_trim": ("FLOAT", {"default": 0.75, "min": 0.0, "max": 2.0, "step": 0.05}),
+            }
+        }
+
+    RETURN_TYPES = ("CHIME_SYNTH_CONFIG",)
+    RETURN_NAMES = ("synth_config",)
+    FUNCTION = "build"
+    CATEGORY = "utils/notifications"
+
+    def build(
+        self,
+        preset_name,
+        saved_preset,
+        waveform,
+        root_pitch,
+        pattern,
+        note_count,
+        step_ms,
+        note_ms,
+        attack_ms,
+        decay_ms,
+        sustain_level,
+        release_ms,
+        volume_trim,
+    ):
+        synth_config = {
+            "version": 1,
+            "preset_name": str(preset_name).strip() or "Custom Synth",
+            "saved_preset": str(saved_preset).strip(),
+            "waveform": waveform,
+            "root_pitch": float(root_pitch),
+            "pattern": pattern,
+            "note_count": int(note_count),
+            "step_ms": int(step_ms),
+            "note_ms": int(note_ms),
+            "attack_ms": int(attack_ms),
+            "decay_ms": int(decay_ms),
+            "sustain_level": float(sustain_level),
+            "release_ms": int(release_ms),
+            "volume_trim": float(volume_trim),
+        }
+        return (synth_config,)
+
+
 NODE_CLASS_MAPPINGS = {
     "ChimeNode": ChimeNode,
+    "ChimeSynthNode": ChimeSynthNode,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "ChimeNode": "Chime",
+    "ChimeSynthNode": "Chime Synth",
 }

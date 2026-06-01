@@ -26,6 +26,7 @@ Current roadmap for small features, polish passes, and maintenance work.
 - Troubleshooting logs now include custom sound source-kind detail when practical
 - Built-in synth options were culled for clearer differentiation, with new presets added to cover low percussive, descending, and neutral signal gaps
 - The next synth-design direction is a separate `Chime Synth` helper node rather than expanding the main `Chime` node UI
+- `Chime Synth` Phase 1 is now shipped as a separate helper node with synth-shaping controls, preview, and browser-local preset save/delete, while `Chime` remains unchanged in output behavior
 
 ## Next
 
@@ -35,10 +36,10 @@ Current roadmap for small features, polish passes, and maintenance work.
   Notes: documented in README with built-in playback, discovered repo-local file, manual repo-local file, absolute-path custom file, preview, cooldown, playback modes, and failure feedback checks.
 - [x] Improve custom sound path UX without reintroducing unstable layout behavior
   Notes: shipped as placeholder and source-hint copy improvements only, with no added widget/layout complexity.
-- [ ] Add a separate `Chime Synth` helper node for saved user-designed synth presets
-  Notes: keep `Chime` lean; built-ins stay separate; `Chime Synth` should own waveform, root pitch, pattern, timing, ADSR, volume trim, preview, and preset save/delete.
-- [ ] Let `Chime` consume an optional synth config input from `Chime Synth`
-  Notes: preserve receiver-only output behavior; custom file playback should still take precedence over synth config playback.
+- [x] Add a separate `Chime Synth` helper node for saved user-designed synth presets
+  Notes: Phase 1 shipped with waveform, root pitch, pattern, timing, ADSR, volume trim, preview, and browser-local preset save/delete, while leaving built-ins separate and `Chime` lean.
+- [x] Let `Chime` consume an optional synth config input from `Chime Synth`
+  Notes: shipped with explicit optional `synth_config` input on `Chime`; custom file playback still takes precedence over synth config playback.
 
 ## Later
 
