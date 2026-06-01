@@ -25,6 +25,8 @@ SOUND_CHOICES = [
     "bell",
     "soft",
     "alert",
+    "tada",
+    "victory",
     "pulse",
     "rise",
     "glass",
@@ -33,6 +35,7 @@ SOUND_CHOICES = [
     "knock",
     "settle",
     "beacon",
+    "unlock",
 ]
 CUSTOM_SOUND_OPTION = "custom"
 PLAYBACK_MODE_CHOICES = ["interrupt", "overlap", "queue"]

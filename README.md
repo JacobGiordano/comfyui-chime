@@ -130,12 +130,14 @@ An importable starter layout is included at [examples/chime-setup-examples.json]
 
 ### Built-In Sounds
 
-The built-in bank now includes 12 synthesized sounds, trimmed to make the options easier to tell apart:
+The built-in bank now includes 15 synthesized sounds, aimed at clearer day-to-day notification use cases plus a few more obviously celebratory options:
 
 - `chime`
 - `bell`
 - `soft`
 - `alert`
+- `tada`
+- `victory`
 - `pulse`
 - `rise`
 - `glass`
@@ -144,6 +146,7 @@ The built-in bank now includes 12 synthesized sounds, trimmed to make the option
 - `knock`
 - `settle`
 - `beacon`
+- `unlock`
 
 Recent culls:
 

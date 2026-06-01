@@ -28,6 +28,7 @@ Current roadmap for small features, polish passes, and maintenance work.
 - Built-in synth options were culled for clearer differentiation, with new presets added to cover low percussive, descending, and neutral signal gaps
 - The next synth-design direction is a separate `Chime Synth` helper node rather than expanding the main `Chime` node UI
 - `Chime Synth` Phase 1 is now shipped as a separate helper node with synth-shaping controls, preview, and browser-local preset save/delete, while `Chime` remains unchanged in output behavior
+- Built-in sounds now include a few more clearly notification-oriented and celebratory choices, including `tada`, `victory`, and `unlock`
 
 ## Next
 
@@ -45,7 +46,7 @@ Current roadmap for small features, polish passes, and maintenance work.
 ## Later
 
 - [x] Add a couple of additional built-in synth presets only if they fill real gaps by ear
-  Notes: shipped alongside a cull of overly similar built-ins; added more distinct low percussive, descending, and neutral signal presets instead of expanding the list blindly.
+  Notes: shipped alongside a cull of overly similar built-ins; added more distinct low percussive, descending, neutral, celebratory, and notification-style presets instead of expanding the list blindly.
 - [x] Consider a tiny release/polish pass on naming consistency in UI copy and toasts
   Notes: shipped as copy-only cleanup for repo-local file, absolute-path, and custom-sound wording across toasts and warnings.
 - [x] Add optional diagnostic detail for custom-sound troubleshooting

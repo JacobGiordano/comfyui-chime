@@ -23,6 +23,9 @@ const BUILT_IN_SOUNDS = new Set([
     "rise",
     "settle",
     "soft",
+    "tada",
+    "unlock",
+    "victory",
 ]);
 const DEFAULT_PLAYBACK_MODE = "interrupt";
 const DEFAULT_TONE_CHARACTER = "default";
@@ -60,6 +63,9 @@ const SOUND_DURATIONS_MS = {
     rise: 880,
     settle: 860,
     soft: 720,
+    tada: 820,
+    unlock: 540,
+    victory: 1120,
 };
 const INFO_WIDGET_HEIGHT = 46;
 const INFO_WIDGET_PADDING_X = 12;
@@ -615,6 +621,25 @@ function playPattern(
             tones.push(scheduleTone(ctx, master, now + 0.16, 523.25 * pitchMultiplier, 0.2, primaryType, 0.28 * gainMultiplier));
             tones.push(scheduleTone(ctx, master, now + 0.34, 392 * pitchMultiplier, 0.34, accentType, 0.24 * gainMultiplier));
             tones.push(scheduleTone(ctx, master, now + 0.54, 293.66 * pitchMultiplier, 0.24, primaryType, 0.18 * gainMultiplier));
+            break;
+        case "tada":
+            tones.push(scheduleTone(ctx, master, now, 523.25 * pitchMultiplier, 0.08, primaryType, 0.34 * gainMultiplier));
+            tones.push(scheduleTone(ctx, master, now + 0.1, 523.25 * pitchMultiplier, 0.08, accentType, 0.24 * gainMultiplier));
+            tones.push(scheduleTone(ctx, master, now + 0.24, 783.99 * pitchMultiplier, 0.18, primaryType, 0.4 * gainMultiplier));
+            tones.push(scheduleTone(ctx, master, now + 0.5, 1046.5 * pitchMultiplier, 0.3, accentType, 0.34 * gainMultiplier));
+            break;
+        case "unlock":
+            tones.push(scheduleTone(ctx, master, now, 587.33 * pitchMultiplier, 0.07, primaryType, 0.24 * gainMultiplier));
+            tones.push(scheduleTone(ctx, master, now + 0.07, 466.16 * pitchMultiplier, 0.08, accentType, 0.18 * gainMultiplier));
+            tones.push(scheduleTone(ctx, master, now + 0.18, 739.99 * pitchMultiplier, 0.12, primaryType, 0.3 * gainMultiplier));
+            tones.push(scheduleTone(ctx, master, now + 0.36, 987.77 * pitchMultiplier, 0.16, accentType, 0.22 * gainMultiplier));
+            break;
+        case "victory":
+            tones.push(scheduleTone(ctx, master, now, 392 * pitchMultiplier, 0.12, primaryType, 0.26 * gainMultiplier));
+            tones.push(scheduleTone(ctx, master, now + 0.16, 587.33 * pitchMultiplier, 0.14, accentType, 0.3 * gainMultiplier));
+            tones.push(scheduleTone(ctx, master, now + 0.34, 493.88 * pitchMultiplier, 0.12, primaryType, 0.22 * gainMultiplier));
+            tones.push(scheduleTone(ctx, master, now + 0.52, 783.99 * pitchMultiplier, 0.18, accentType, 0.32 * gainMultiplier));
+            tones.push(scheduleTone(ctx, master, now + 0.78, 1174.66 * pitchMultiplier, 0.28, primaryType, 0.28 * gainMultiplier));
             break;
         case "glass":
             tones.push(scheduleTone(ctx, master, now, 1046.5 * pitchMultiplier, 0.14, accentType, 0.4 * gainMultiplier));
