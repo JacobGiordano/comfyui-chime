@@ -975,7 +975,7 @@ function getConnectedSynthInfo(node) {
     const label =
         String(config?.preset_name || "").trim() ||
         String(getNodeWidgetValue(originNode, "saved_preset", "") || "").trim() ||
-        "Connected synth";
+        "Connected synth sound";
 
     return {
         config,
@@ -1174,13 +1174,13 @@ function updateCustomSoundUi(node) {
     const hasManualCustom = soundValue === "custom" && customValue.length > 0;
 
     if (synthConfigConnected && hasDiscoveredCustom) {
-        sourceHintWidget.value = `Custom file takes precedence over connected synth: ${soundValue.slice(CUSTOM_SOUND_PREFIX.length)}`;
+        sourceHintWidget.value = `Custom file is active instead of the connected synth sound: ${soundValue.slice(CUSTOM_SOUND_PREFIX.length)}`;
     } else if (synthConfigConnected && hasManualCustom) {
-        sourceHintWidget.value = `Custom file takes precedence over connected synth: ${customValue}`;
+        sourceHintWidget.value = `Custom file is active instead of the connected synth sound: ${customValue}`;
     } else if (synthConfigConnected && soundValue === "custom" && !customValue) {
-        sourceHintWidget.value = `Connected synth: ${connectedSynthInfo.label}`;
+        sourceHintWidget.value = `Connected synth sound: ${connectedSynthInfo.label}`;
     } else if (synthConfigConnected) {
-        sourceHintWidget.value = `Connected synth overrides built-in sound: ${connectedSynthInfo.label}`;
+        sourceHintWidget.value = `Connected synth sound is active: ${connectedSynthInfo.label}`;
     } else {
         sourceHintWidget.value = describeResolvedSource(soundValue, customSoundWidget.value);
     }

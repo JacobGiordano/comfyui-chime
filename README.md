@@ -39,7 +39,7 @@ Receiver-only ComfyUI custom node that plays a frontend sound when execution rea
 
 When `sound` is set to a built-in option, the node keeps `custom_sound` as an optional field. When `sound` is set to `custom`, the node UI shows more explicit guidance for repo-local filenames and absolute local paths.
 
-The node also shows a read-only resolved-source hint so you can tell whether the current selection will use a built-in sound, a discovered repo-local file from `sounds/`, a manually entered repo-local filename, or an absolute local file path. When `synth_config` is connected, that hint also names the connected synth preset or patch, and when a custom file is selected at the same time it makes that precedence explicit too.
+The node also shows a read-only resolved-source hint so you can tell whether the current selection will use a built-in sound, a discovered repo-local file from `sounds/`, a manually entered repo-local filename, or an absolute local file path. When `synth_config` is connected, that hint also names the connected saved synth sound or custom synth sound, and when a custom file is selected at the same time it makes that precedence explicit too.
 
 When `synth_config` is connected, `Chime` will use that synth design at execution time after checking for a resolvable custom file. The playback order is:
 
@@ -51,7 +51,7 @@ When `synth_config` is connected, `Chime` will use that synth design at executio
 
 #### 1. Simple built-in chime
 
-- Add `Chime` at the end of the branch you want to monitor
+- Add `Chime` wherever you want a notification to fire in the workflow
 - Leave `synth_config` disconnected
 - Pick a built-in `sound`
 - Use `Preview sound` to audition it
@@ -66,10 +66,18 @@ When `synth_config` is connected, `Chime` will use that synth design at executio
 #### 3. Synth-designed chime
 
 - Add `Chime Synth`
-- Design or randomize the synth patch, then optionally save it as a preset
+- Design or randomize the synth sound, then optionally save it as a preset
 - Connect `Chime Synth.synth_config` to `Chime.synth_config`
 - Leave `Chime` focused on receiver behavior: choose a built-in fallback sound if you want one, and use `sound=custom` only when you actually want custom-file precedence
-- Use `Preview synth` on `Chime Synth` to audition the patch directly, or `Preview sound` on `Chime` to verify the connected receiver path
+- Use `Preview synth` on `Chime Synth` to audition the synth sound directly, or `Preview sound` on `Chime` to verify the connected receiver path
+
+### Example Workflow
+
+An importable starter layout is included at [examples/chime-setup-examples.json](/Users/jacobgiordano/Documents/_coding/comfyui-custom-nodes/comfyui-chime/examples/chime-setup-examples.json).
+
+- It includes one standalone `Chime` using a built-in sound
+- It includes one `Chime Synth -> Chime.synth_config` pairing
+- It is meant as a setup reference, so you still need to connect each `Chime.trigger` input into your own runnable workflow at the point where you want the notification to fire
 
 ## Helper Node
 
@@ -99,7 +107,7 @@ When `synth_config` is connected, `Chime` will use that synth design at executio
 ### Presets And Preview
 
 - `Preview synth` plays the current `Chime Synth` settings directly in the frontend
-- `Randomize synth` generates a new synth patch inside restrained musical ranges without auto-playing it
+- `Randomize synth` generates a new synth sound inside restrained musical ranges without auto-playing it
 - `Save preset` stores the current synth design in browser-local storage for later reuse in the same ComfyUI environment
 - `Delete preset` removes the selected saved preset from browser-local storage
 - Saved presets are currently UI-local convenience data; Phase 2 is the separate roadmap item that will let `Chime` consume a `CHIME_SYNTH_CONFIG` input
@@ -113,7 +121,7 @@ When `synth_config` is connected, `Chime` will use that synth design at executio
 ### Playback Behavior
 
 - `volume` on `Chime` still applies to built-in sounds and custom audio files
-- `volume_trim` on `Chime Synth` shapes synth loudness inside the generated synth patch
+- `volume_trim` on `Chime Synth` shapes loudness inside the generated synth sound
 - Built-in sound selection on `Chime` stays intentionally simple; deeper synth shaping belongs on `Chime Synth`
 
 ### Built-In Sounds
@@ -226,6 +234,8 @@ If a previously discovered dropdown entry points to a file that has since been r
 ```text
 comfyui-chime/
 ├── __init__.py
+├── examples/
+│   └── chime-setup-examples.json
 ├── nodes.py
 ├── sounds/
 └── web/
@@ -252,8 +262,8 @@ Use this short pass before a release or after a polish change:
 6. Set `sound=custom`, enter a valid absolute local file path, and confirm preview and execution playback work.
 7. Turn `cooldown_ms` above `0` and confirm repeated execution of the same node is suppressed inside the cooldown window.
 8. Check `interrupt`, `overlap`, and `queue` playback modes with quick repeated triggers so their behavior still matches the descriptions.
-9. Connect `Chime Synth.synth_config` into `Chime.synth_config`, then confirm both `Preview synth` and `Preview sound` on the receiver path use the connected synth patch.
-10. On `Chime Synth`, preview a custom patch, save it, reload it from the dropdown, and delete it again.
+9. Connect `Chime Synth.synth_config` into `Chime.synth_config`, then confirm both `Preview synth` and `Preview sound` on the receiver path use the connected synth sound.
+10. On `Chime Synth`, preview a custom synth sound, save it, reload it from the dropdown, and delete it again.
 11. If a custom sound fails, confirm the toast message is understandable and the runtime log is concise and stage-aware when practical.
 
 ## Troubleshooting
@@ -292,8 +302,8 @@ Use this short pass before a release or after a polish change:
 ### Connected synth path behaves unexpectedly
 
 - Confirm `Chime Synth.synth_config` is connected to `Chime.synth_config`, not to `trigger`.
-- Use `Preview synth` on `Chime Synth` first. If that does not sound right, fix the patch there before debugging the receiver path.
-- Then use `Preview sound` on `Chime`. If the source hint names the connected synth preset or patch, the receiver is seeing the synth input correctly.
+- Use `Preview synth` on `Chime Synth` first. If that does not sound right, fix the synth sound there before debugging the receiver path.
+- Then use `Preview sound` on `Chime`. If the source hint names the connected saved synth sound or custom synth sound, the receiver is seeing the synth input correctly.
 - If `Chime` is also pointed at a valid custom file, that custom file still takes precedence over the connected synth by design.
 - If you want the connected synth to be the active path, clear the custom file setting or leave `sound` on a built-in fallback instead of a real custom file.
 
