@@ -4,6 +4,7 @@ Current roadmap for small features, polish passes, and maintenance work.
 
 ## Timeline Markers
 
+- 2026-06-01: `ComfyUI-Chime` is being marked as `v1.0.0`, with the separate `Chime Synth` helper flow, lean receiver-only `Chime` behavior, docs, and example workflow considered release-ready.
 - 2026-05-31: roadmap focus shifted from incremental `Chime` node polish toward a separate `Chime Synth` helper node for user-designed synth presets, while keeping built-ins separate and `Chime` lean.
 
 ## How To Use This
