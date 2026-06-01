@@ -2,6 +2,10 @@
 
 Receiver-only ComfyUI custom node that plays a frontend sound when execution reaches the node.
 
+## Disclosure
+
+This project was developed with substantial help from OpenAI Codex. The code, docs, and iteration work in this repository were heavily AI-assisted rather than written entirely by hand.
+
 ## Features
 
 - Receiver-only `Chime` node
