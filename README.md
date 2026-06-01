@@ -47,6 +47,30 @@ When `synth_config` is connected, `Chime` will use that synth design at executio
 - connected `synth_config`
 - existing built-in `sound`
 
+### Common Setups
+
+#### 1. Simple built-in chime
+
+- Add `Chime` at the end of the branch you want to monitor
+- Leave `synth_config` disconnected
+- Pick a built-in `sound`
+- Use `Preview sound` to audition it
+
+#### 2. Custom file playback
+
+- Add `Chime`
+- Set `sound=custom`
+- Enter either a repo-local filename from `sounds/` or an absolute local path in `custom_sound`
+- Use `Preview sound` to confirm the file resolves in your current ComfyUI environment
+
+#### 3. Synth-designed chime
+
+- Add `Chime Synth`
+- Design or randomize the synth patch, then optionally save it as a preset
+- Connect `Chime Synth.synth_config` to `Chime.synth_config`
+- Leave `Chime` focused on receiver behavior: choose a built-in fallback sound if you want one, or set `sound=custom` only when you actually want custom-file precedence
+- Use `Preview synth` on `Chime Synth` to audition the patch directly, or `Preview sound` on `Chime` to verify the connected receiver path
+
 ## Helper Node
 
 - Display name: `Chime Synth`
