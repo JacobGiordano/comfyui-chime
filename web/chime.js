@@ -951,7 +951,7 @@ function getGraphNodeById(graph, nodeId) {
     return graph._nodes_by_id?.[nodeId] ?? graph._nodes_by_id?.[String(nodeId)] ?? null;
 }
 
-function resolveConnectedSynthConfig(node) {
+function getConnectedSynthInfo(node) {
     const input = node?.inputs?.find((entry) => entry?.name === "synth_config");
     const linkId = Array.isArray(input?.links) ? input.links[0] : input?.link;
     if (linkId == null) {
@@ -971,7 +971,20 @@ function resolveConnectedSynthConfig(node) {
     }
 
     normalizeSynthNodeWidgets(originNode);
-    return buildSynthConfigFromNode(originNode);
+    const config = buildSynthConfigFromNode(originNode);
+    const label =
+        String(config?.preset_name || "").trim() ||
+        String(getNodeWidgetValue(originNode, "saved_preset", "") || "").trim() ||
+        "Connected synth";
+
+    return {
+        config,
+        label,
+    };
+}
+
+function resolveConnectedSynthConfig(node) {
+    return getConnectedSynthInfo(node)?.config ?? null;
 }
 
 function readSynthPresetStore() {
@@ -1144,7 +1157,8 @@ function updateCustomSoundUi(node) {
     }
 
     const soundValue = String(soundWidget.value || "");
-    const synthConfigConnected = isInputConnected(node, "synth_config");
+    const connectedSynthInfo = getConnectedSynthInfo(node);
+    const synthConfigConnected = Boolean(connectedSynthInfo?.config);
     const isManualCustom = soundValue === "custom";
 
     customSoundWidget.options = customSoundWidget.options || {};
@@ -1155,10 +1169,18 @@ function updateCustomSoundUi(node) {
         customSoundWidget.size = customSoundWidget.computeSize();
     }
 
-    if (synthConfigConnected && soundValue === "custom" && !String(customSoundWidget.value || "").trim()) {
-        sourceHintWidget.value = "Connected synth input will be used";
+    const customValue = String(customSoundWidget.value || "").trim();
+    const hasDiscoveredCustom = soundValue.startsWith(CUSTOM_SOUND_PREFIX);
+    const hasManualCustom = soundValue === "custom" && customValue.length > 0;
+
+    if (synthConfigConnected && hasDiscoveredCustom) {
+        sourceHintWidget.value = `Custom file takes precedence over connected synth: ${soundValue.slice(CUSTOM_SOUND_PREFIX.length)}`;
+    } else if (synthConfigConnected && hasManualCustom) {
+        sourceHintWidget.value = `Custom file takes precedence over connected synth: ${customValue}`;
+    } else if (synthConfigConnected && soundValue === "custom" && !customValue) {
+        sourceHintWidget.value = `Connected synth: ${connectedSynthInfo.label}`;
     } else if (synthConfigConnected) {
-        sourceHintWidget.value = "Connected synth input overrides built-in sound selection";
+        sourceHintWidget.value = `Connected synth overrides built-in sound: ${connectedSynthInfo.label}`;
     } else {
         sourceHintWidget.value = describeResolvedSource(soundValue, customSoundWidget.value);
     }
