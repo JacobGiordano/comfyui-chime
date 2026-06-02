@@ -74,6 +74,7 @@ When `synth_config` is connected, `Chime` will use that synth design at executio
 - Connect `Chime Synth.synth_config` to `Chime.synth_config`
 - Leave `Chime` focused on receiver behavior: choose a built-in fallback sound if you want one, and use `sound=custom` only when you actually want custom-file precedence
 - Use `Preview synth` on `Chime Synth` to audition the synth sound directly, or `Preview sound` on `Chime` to verify the connected receiver path
+- Use `Chime Synth.speed` if you want that synth sound to play faster or slower
 
 ### Example Workflow
 
@@ -100,6 +101,7 @@ An importable starter layout is included at [examples/chime-setup-examples.json]
 - `root_pitch`: base frequency in Hz
 - `pattern`: melodic shape: `single`, `double`, `up`, `down`, `major`, `minor`, or `fifth`
 - `note_count`: how many notes to emit before the phrase ends; the selected pattern repeats as needed
+- `speed`: playback speed for that synth sound from `0.25` to `3.0`
 - `step_ms`: time between note starts
 - `note_ms`: note duration
 - `attack_ms`: envelope attack time
@@ -112,9 +114,10 @@ An importable starter layout is included at [examples/chime-setup-examples.json]
 
 - `Preview synth` plays the current `Chime Synth` settings directly in the frontend
 - `Randomize synth` generates a new synth sound inside restrained musical ranges without auto-playing it
-- `Save preset` stores the current synth design in browser-local storage for later reuse in the same ComfyUI environment
-- `Delete preset` removes the selected saved preset from browser-local storage
-- Saved presets are currently UI-local convenience data; Phase 2 is the separate roadmap item that will let `Chime` consume a `CHIME_SYNTH_CONFIG` input
+- `Save preset` stores the current synth design in browser-local storage for later reuse in the same ComfyUI environment, and asks before overwriting an existing preset with the same name
+- `Delete preset` removes the selected saved preset from browser-local storage, with a confirmation prompt first
+- Saving or deleting a preset updates the preset dropdown across other `Chime Synth` nodes in the same workflow
+- Saved presets are currently UI-local convenience data for that ComfyUI environment
 
 ### Playback Modes
 
@@ -125,6 +128,9 @@ An importable starter layout is included at [examples/chime-setup-examples.json]
 ### Playback Behavior
 
 - `volume` on `Chime` still applies to built-in sounds and custom audio files
+- Built-in sounds on `Chime` play at their intended fixed speed
+- `speed` on `Chime Synth` applies anywhere that synth config is used, including receiver-side playback through `Chime`
+- Custom audio files keep their original playback speed
 - `volume_trim` on `Chime Synth` shapes loudness inside the generated synth sound
 - Built-in sound selection on `Chime` stays intentionally simple; deeper synth shaping belongs on `Chime Synth`
 
@@ -165,7 +171,9 @@ Recent culls:
 Use the node's `Preview sound` button to hear the currently selected sound without running the whole workflow.
 
 - Built-in sounds preview immediately
+- Connected synth previews respect the `speed` saved in that synth config
 - Custom previews support both repo-local files in `sounds/` and absolute local paths
+- Custom audio files preview at their original speed
 - If browser audio is still locked, the frontend will prompt you to click once in ComfyUI and try again
 
 ### Custom Sounds

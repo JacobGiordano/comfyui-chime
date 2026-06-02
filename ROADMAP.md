@@ -4,6 +4,7 @@ Current roadmap for small features, polish passes, and maintenance work.
 
 ## Timeline Markers
 
+- 2026-06-01: playback `speed` was moved onto `Chime Synth`, so built-in sounds stay fixed-speed while connected synth sounds can still be shaped from the helper node.
 - 2026-06-01: `ComfyUI-Chime` is being marked as `v1.0.0`, with the separate `Chime Synth` helper flow, lean receiver-only `Chime` behavior, docs, and example workflow considered release-ready.
 - 2026-05-31: roadmap focus shifted from incremental `Chime` node polish toward a separate `Chime Synth` helper node for user-designed synth presets, while keeping built-ins separate and `Chime` lean.
 
@@ -29,6 +30,7 @@ Current roadmap for small features, polish passes, and maintenance work.
 - The next synth-design direction is a separate `Chime Synth` helper node rather than expanding the main `Chime` node UI
 - `Chime Synth` Phase 1 is now shipped as a separate helper node with synth-shaping controls, preview, and browser-local preset save/delete, while `Chime` remains unchanged in output behavior
 - Built-in sounds now include a few more clearly notification-oriented and celebratory choices, including `tada`, `victory`, and `unlock`
+- `Chime Synth` now has a playback `speed` control for connected synth sounds, while built-in `Chime` sounds stay fixed-speed
 
 ## Next
 
@@ -42,6 +44,8 @@ Current roadmap for small features, polish passes, and maintenance work.
   Notes: Phase 1 shipped with waveform, root pitch, pattern, timing, ADSR, volume trim, preview, and browser-local preset save/delete, while leaving built-ins separate and `Chime` lean.
 - [x] Let `Chime` consume an optional synth config input from `Chime Synth`
   Notes: shipped with explicit optional `synth_config` input on `Chime`; custom file playback still takes precedence over synth config playback.
+- [x] Add playback speed control for user-designed synth sounds
+  Notes: shipped as a `Chime Synth` control that travels with the synth config; built-in `Chime` sounds stay fixed-speed and custom audio files keep their original playback speed.
 
 ## Later
 

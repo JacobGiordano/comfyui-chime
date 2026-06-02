@@ -3,6 +3,8 @@ import { api } from "../../scripts/api.js";
 
 const EXTENSION_NAME = "comfyui-chime";
 const MAX_VOLUME = 2.0;
+const MIN_SPEED = 0.25;
+const MAX_SPEED = 3.0;
 const MAX_MASTER_GAIN = 1.5;
 const CUSTOM_SOUND_PREFIX = "custom:";
 const TOAST_DURATION_MS = 3200;
@@ -257,6 +259,12 @@ function normalizeCooldownMs(value) {
 
 function normalizeVolume(value) {
     return Math.max(0, Math.min(MAX_VOLUME, Number(value) || 0));
+}
+
+function normalizeSpeed(value) {
+    const numericValue = Number(value);
+    const safeValue = Number.isFinite(numericValue) ? numericValue : 1.0;
+    return Math.max(MIN_SPEED, Math.min(MAX_SPEED, safeValue));
 }
 
 function normalizePlaybackMode(value) {
@@ -758,15 +766,17 @@ function playSynthConfig(config) {
         return Promise.resolve();
     }
 
+    const speedMultiplier = normalizeSpeed(config?.speed);
+    const timingScale = 1 / speedMultiplier;
     const waveform = normalizeSynthWaveform(config?.waveform);
     const rootPitch = normalizeSynthRootPitch(config?.root_pitch);
-    const stepMs = normalizeSynthStepMs(config?.step_ms);
-    const noteMs = normalizeSynthDurationMs(config?.note_ms);
+    const stepMs = normalizeSynthStepMs(config?.step_ms) * timingScale;
+    const noteMs = normalizeSynthDurationMs(config?.note_ms) * timingScale;
     const envelope = {
-        attackMs: normalizeSynthAttackMs(config?.attack_ms),
-        decayMs: normalizeSynthDecayMs(config?.decay_ms),
+        attackMs: normalizeSynthAttackMs(config?.attack_ms) * timingScale,
+        decayMs: normalizeSynthDecayMs(config?.decay_ms) * timingScale,
         sustainLevel: normalizeSustainLevel(config?.sustain_level),
-        releaseMs: normalizeSynthReleaseMs(config?.release_ms),
+        releaseMs: normalizeSynthReleaseMs(config?.release_ms) * timingScale,
     };
     const volumeTrim = normalizeSynthVolumeTrim(config?.volume_trim);
     const pattern = normalizeSynthPattern(config?.pattern);
@@ -1048,6 +1058,7 @@ function buildSynthConfigFromNode(node) {
         root_pitch: normalizeSynthRootPitch(getNodeWidgetValue(node, "root_pitch", 587.33)),
         pattern: normalizeSynthPattern(String(getNodeWidgetValue(node, "pattern", DEFAULT_SYNTH_PATTERN) || "")),
         note_count: normalizeSynthNoteCount(getNodeWidgetValue(node, "note_count", 4)),
+        speed: normalizeSpeed(getNodeWidgetValue(node, "speed", 1.0)),
         step_ms: normalizeSynthStepMs(getNodeWidgetValue(node, "step_ms", 140)),
         note_ms: normalizeSynthDurationMs(getNodeWidgetValue(node, "note_ms", 220)),
         attack_ms: normalizeSynthAttackMs(getNodeWidgetValue(node, "attack_ms", 10)),
@@ -1088,6 +1099,7 @@ function randomizeSynthNode(node) {
     setWidgetValue(getNodeWidget(node, "waveform"), randomChoice(["sine", "triangle", "square", "sawtooth"]));
     setWidgetValue(getNodeWidget(node, "pattern"), randomChoice(["single", "double", "up", "down", "major", "minor", "fifth"]));
     setWidgetValue(getNodeWidget(node, "note_count"), randomInt(2, 12, 1));
+    setWidgetValue(getNodeWidget(node, "speed"), randomFloat(0.7, 1.6, 0.05));
     setWidgetValue(getNodeWidget(node, "root_pitch"), randomFloat(196.0, 987.77, 0.01));
     setWidgetValue(getNodeWidget(node, "step_ms"), randomInt(80, 280, 10));
     setWidgetValue(getNodeWidget(node, "note_ms"), randomInt(120, 420, 10));
@@ -1134,6 +1146,11 @@ function normalizeSynthNodeWidgets(node) {
     const noteCountWidget = getNodeWidget(node, "note_count");
     if (noteCountWidget) {
         noteCountWidget.value = normalizeSynthNoteCount(noteCountWidget.value);
+    }
+
+    const speedWidget = getNodeWidget(node, "speed");
+    if (speedWidget) {
+        speedWidget.value = normalizeSpeed(speedWidget.value);
     }
 
     const stepWidget = getNodeWidget(node, "step_ms");
@@ -1236,6 +1253,32 @@ function refreshSynthPresetOptions(node, selectedName = null) {
     presetWidget.value = values.includes(currentValue) ? currentValue : DEFAULT_SYNTH_PRESET;
 }
 
+function confirmPresetAction(message) {
+    if (typeof window?.confirm === "function") {
+        return window.confirm(message);
+    }
+    return true;
+}
+
+function forEachSynthNode(callback) {
+    const nodes = Array.isArray(app?.graph?._nodes) ? app.graph._nodes : [];
+    for (const node of nodes) {
+        if (isChimeSynthNode(node)) {
+            callback(node);
+        }
+    }
+}
+
+function refreshAllSynthPresetOptions(selectedByNode = new Map()) {
+    forEachSynthNode((node) => {
+        const selectedName = selectedByNode.get(node) ?? null;
+        refreshSynthPresetOptions(node, selectedName);
+        if (typeof node.setDirtyCanvas === "function") {
+            node.setDirtyCanvas(true, true);
+        }
+    });
+}
+
 function loadSynthPresetIntoNode(node, presetName) {
     const presetStore = readSynthPresetStore();
     const preset = presetStore[presetName];
@@ -1250,6 +1293,7 @@ function loadSynthPresetIntoNode(node, presetName) {
     setWidgetValue(getNodeWidget(node, "root_pitch"), normalizeSynthRootPitch(preset.root_pitch));
     setWidgetValue(getNodeWidget(node, "pattern"), normalizeSynthPattern(preset.pattern));
     setWidgetValue(getNodeWidget(node, "note_count"), normalizeSynthNoteCount(preset.note_count));
+    setWidgetValue(getNodeWidget(node, "speed"), normalizeSpeed(preset.speed));
     setWidgetValue(getNodeWidget(node, "step_ms"), normalizeSynthStepMs(preset.step_ms));
     setWidgetValue(getNodeWidget(node, "note_ms"), normalizeSynthDurationMs(preset.note_ms));
     setWidgetValue(getNodeWidget(node, "attack_ms"), normalizeSynthAttackMs(preset.attack_ms));
@@ -1272,9 +1316,25 @@ function saveSynthPresetFromNode(node) {
     }
 
     const presetStore = readSynthPresetStore();
+    const isOverwrite = Boolean(presetStore[presetName]);
+    if (
+        isOverwrite &&
+        !confirmPresetAction(`Overwrite the saved Chime Synth preset “${presetName}”?`)
+    ) {
+        return;
+    }
+
     presetStore[presetName] = config;
     writeSynthPresetStore(presetStore);
-    refreshSynthPresetOptions(node, presetName);
+    const selectedByNode = new Map();
+    forEachSynthNode((currentNode) => {
+        const currentValue = String(getNodeWidgetValue(currentNode, "saved_preset", DEFAULT_SYNTH_PRESET) || DEFAULT_SYNTH_PRESET);
+        selectedByNode.set(currentNode, currentNode === node ? presetName : currentValue);
+    });
+    refreshAllSynthPresetOptions(selectedByNode);
+    if (!isOverwrite) {
+        setWidgetValue(getNodeWidget(node, "preset_name"), "");
+    }
     showToast(`Saved Chime Synth preset “${presetName}”.`, "info");
 }
 
@@ -1293,9 +1353,18 @@ function deleteSynthPresetFromNode(node) {
         return;
     }
 
+    if (!confirmPresetAction(`Delete the saved Chime Synth preset “${presetName}”?`)) {
+        return;
+    }
+
     delete presetStore[presetName];
     writeSynthPresetStore(presetStore);
-    refreshSynthPresetOptions(node, DEFAULT_SYNTH_PRESET);
+    const selectedByNode = new Map();
+    forEachSynthNode((currentNode) => {
+        const currentValue = String(getNodeWidgetValue(currentNode, "saved_preset", DEFAULT_SYNTH_PRESET) || DEFAULT_SYNTH_PRESET);
+        selectedByNode.set(currentNode, currentValue === presetName ? DEFAULT_SYNTH_PRESET : currentValue);
+    });
+    refreshAllSynthPresetOptions(selectedByNode);
     showToast(`Deleted Chime Synth preset “${presetName}”.`, "info");
 }
 

@@ -440,6 +440,7 @@ class ChimeSynthNode:
                 "sustain_level": ("FLOAT", {"default": 0.45, "min": 0.0, "max": 1.0, "step": 0.01}),
                 "release_ms": ("INT", {"default": 240, "min": 10, "max": 4000, "step": 10}),
                 "volume_trim": ("FLOAT", {"default": 0.75, "min": 0.0, "max": 2.0, "step": 0.05}),
+                "speed": ("FLOAT", {"default": 1.0, "min": 0.25, "max": 3.0, "step": 0.05}),
             }
         }
 
@@ -463,6 +464,7 @@ class ChimeSynthNode:
         sustain_level,
         release_ms,
         volume_trim,
+        speed,
     ):
         synth_config = {
             "version": 1,
@@ -472,6 +474,7 @@ class ChimeSynthNode:
             "root_pitch": float(root_pitch),
             "pattern": pattern,
             "note_count": int(note_count),
+            "speed": float(speed),
             "step_ms": int(step_ms),
             "note_ms": int(note_ms),
             "attack_ms": int(attack_ms),
