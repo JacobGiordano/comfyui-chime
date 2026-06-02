@@ -1279,6 +1279,61 @@ function refreshAllSynthPresetOptions(selectedByNode = new Map()) {
     });
 }
 
+function attachSavedPresetWidgetBehavior(node, widget, originalCallback = null) {
+    if (!widget) {
+        return;
+    }
+
+    widget.options = widget.options || {};
+    widget.options.values = [DEFAULT_SYNTH_PRESET, ...listSynthPresetNames()];
+    widget.callback = (...args) => {
+        if (typeof originalCallback === "function") {
+            originalCallback.apply(widget, args);
+        }
+        const selectedName = String(widget.value || DEFAULT_SYNTH_PRESET);
+        if (selectedName !== DEFAULT_SYNTH_PRESET) {
+            loadSynthPresetIntoNode(node, selectedName);
+        }
+    };
+}
+
+function ensureSavedPresetComboWidget(node) {
+    const existingWidget = getNodeWidget(node, "saved_preset");
+    if (!existingWidget) {
+        return null;
+    }
+
+    if (existingWidget.type === "combo") {
+        attachSavedPresetWidgetBehavior(node, existingWidget, existingWidget.callback);
+        return existingWidget;
+    }
+
+    const widgetIndex = Array.isArray(node.widgets) ? node.widgets.indexOf(existingWidget) : -1;
+    const currentValue = String(existingWidget.value || DEFAULT_SYNTH_PRESET);
+    const originalCallback = existingWidget.callback;
+
+    if (widgetIndex >= 0) {
+        node.widgets.splice(widgetIndex, 1);
+    }
+
+    const comboWidget = node.addWidget(
+        "combo",
+        "saved_preset",
+        currentValue,
+        null,
+        { values: [DEFAULT_SYNTH_PRESET, ...listSynthPresetNames()] }
+    );
+
+    attachSavedPresetWidgetBehavior(node, comboWidget, originalCallback);
+
+    if (widgetIndex >= 0 && Array.isArray(node.widgets)) {
+        node.widgets.pop();
+        node.widgets.splice(widgetIndex, 0, comboWidget);
+    }
+
+    return comboWidget;
+}
+
 function loadSynthPresetIntoNode(node, presetName) {
     const presetStore = readSynthPresetStore();
     const preset = presetStore[presetName];
@@ -1558,21 +1613,7 @@ app.registerExtension({
             const result = onNodeCreated ? onNodeCreated.apply(this, arguments) : undefined;
 
             if (nodeData?.name === "ChimeSynthNode") {
-                const savedPresetWidget = getNodeWidget(this, "saved_preset");
-                if (savedPresetWidget) {
-                    savedPresetWidget.options = savedPresetWidget.options || {};
-                    savedPresetWidget.options.values = [DEFAULT_SYNTH_PRESET, ...listSynthPresetNames()];
-                    const originalCallback = savedPresetWidget.callback;
-                    savedPresetWidget.callback = (...args) => {
-                        if (typeof originalCallback === "function") {
-                            originalCallback.apply(savedPresetWidget, args);
-                        }
-                        const selectedName = String(savedPresetWidget.value || DEFAULT_SYNTH_PRESET);
-                        if (selectedName !== DEFAULT_SYNTH_PRESET) {
-                            loadSynthPresetIntoNode(this, selectedName);
-                        }
-                    };
-                }
+                const savedPresetWidget = ensureSavedPresetComboWidget(this);
 
                 this.addWidget("button", "Preview synth", null, () => {
                     previewSynthNode(this);

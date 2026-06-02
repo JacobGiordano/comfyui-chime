@@ -96,7 +96,7 @@ An importable starter layout is included at [examples/chime-setup-examples.json]
 ### Inputs
 
 - `preset_name`: label used for the generated config and for saving/loading presets
-- `saved_preset`: browser-local preset slot selector
+- `saved_preset`: browser-local preset selector used by the UI for loading saved synth sounds
 - `waveform`: oscillator shape: `sine`, `triangle`, `square`, or `sawtooth`
 - `root_pitch`: base frequency in Hz
 - `pattern`: melodic shape: `single`, `double`, `up`, `down`, `major`, `minor`, or `fifth`

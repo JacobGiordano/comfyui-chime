@@ -428,7 +428,13 @@ class ChimeSynthNode:
                         "placeholder": "Preset label for preview/save",
                     },
                 ),
-                "saved_preset": (["(unsaved)"], {"default": "(unsaved)"}),
+                "saved_preset": (
+                    "STRING",
+                    {
+                        "default": "(unsaved)",
+                        "multiline": False,
+                    },
+                ),
                 "waveform": (SYNTH_WAVEFORM_CHOICES, {"default": "triangle"}),
                 "root_pitch": ("FLOAT", {"default": 587.33, "min": 65.41, "max": 2093.0, "step": 0.01}),
                 "pattern": (SYNTH_PATTERN_CHOICES, {"default": "major"}),
