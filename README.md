@@ -35,7 +35,7 @@ This project was developed with substantial help from OpenAI Codex. The code, do
 - `custom_sound`: filename from `sounds/` or an absolute local file path when `sound` is set to `custom`
 - `volume`: float from `0.0` to `2.0`
 - `cooldown_ms`: minimum time in milliseconds before the same node will play again
-- `playback_mode`: choose how repeated triggers behave: `interrupt`, `overlap`, or `queue`
+- `playback_mode`: choose how repeated triggers behave: `interrupt`, `overlap`, `queue`, or `queue_end`
 
 ### Optional Inputs
 
@@ -124,6 +124,8 @@ An importable starter layout is included at [examples/chime-setup-examples.json]
 - `interrupt`: stop the current chime and play the newest one immediately
 - `overlap`: let multiple chimes play at the same time
 - `queue`: wait for the current chime to finish before playing the next one
+- `queue_end`: wait until ComfyUI reports the global queue is empty, then play once
+- If several `queue_end` triggers happen before the queue drains, the latest one wins so you still get one final notification.
 
 ### Playback Behavior
 
@@ -133,6 +135,7 @@ An importable starter layout is included at [examples/chime-setup-examples.json]
 - Custom audio files keep their original playback speed
 - `volume_trim` on `Chime Synth` shapes loudness inside the generated synth sound
 - Built-in sound selection on `Chime` stays intentionally simple; deeper synth shaping belongs on `Chime Synth`
+- `queue_end` affects graph-triggered playback only; `Preview sound` still plays immediately so auditioning stays responsive
 
 ### Built-In Sounds
 
@@ -276,10 +279,11 @@ Use this short pass before a release or after a polish change:
 5. Set `sound=custom`, enter a repo-local filename such as `glass-tap.wav`, and confirm preview and execution playback work.
 6. Set `sound=custom`, enter a valid absolute local file path, and confirm preview and execution playback work.
 7. Turn `cooldown_ms` above `0` and confirm repeated execution of the same node is suppressed inside the cooldown window.
-8. Check `interrupt`, `overlap`, and `queue` playback modes with quick repeated triggers so their behavior still matches the descriptions.
-9. Connect `Chime Synth.synth_config` into `Chime.synth_config`, then confirm both `Preview synth` and `Preview sound` on the receiver path use the connected synth sound.
-10. On `Chime Synth`, preview a custom synth sound, save it, reload it from the dropdown, and delete it again.
-11. If a custom sound fails, confirm the toast message is understandable and the runtime log is concise and stage-aware when practical.
+8. Check `interrupt`, `overlap`, `queue`, and `queue_end` playback modes so their behavior still matches the descriptions.
+9. Queue multiple prompt runs with `playback_mode=queue_end` and confirm the chime fires only after the final queued run finishes.
+10. Connect `Chime Synth.synth_config` into `Chime.synth_config`, then confirm both `Preview synth` and `Preview sound` on the receiver path use the connected synth sound.
+11. On `Chime Synth`, preview a custom synth sound, save it, reload it from the dropdown, and delete it again.
+12. If a custom sound fails, confirm the toast message is understandable and the runtime log is concise and stage-aware when practical.
 
 ## Troubleshooting
 
@@ -327,4 +331,5 @@ Use this short pass before a release or after a polish change:
 - `interrupt` stops the current sound and starts the newest one immediately.
 - `overlap` allows multiple sounds to stack, which can feel much louder or busier in fast workflows.
 - `queue` waits for earlier sounds to finish, so rapid triggers may produce delayed playback by design.
+- `queue_end` defers playback until ComfyUI reports `queue_remaining=0`, so the chime follows the last queued run rather than the first node hit.
 - If you are not sure whether timing is the issue, switch to `interrupt` first while debugging.

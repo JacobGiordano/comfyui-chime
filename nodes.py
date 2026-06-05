@@ -38,7 +38,7 @@ SOUND_CHOICES = [
     "unlock",
 ]
 CUSTOM_SOUND_OPTION = "custom"
-PLAYBACK_MODE_CHOICES = ["interrupt", "overlap", "queue"]
+PLAYBACK_MODE_CHOICES = ["interrupt", "overlap", "queue", "queue_end"]
 TONE_CHARACTER_CHOICES = ["default", "warm", "bright", "hollow"]
 WAVEFORM_CHOICES = ["auto", "sine", "triangle", "square", "sawtooth"]
 SYNTH_WAVEFORM_CHOICES = ["sine", "triangle", "square", "sawtooth"]

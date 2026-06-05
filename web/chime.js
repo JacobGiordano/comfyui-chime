@@ -46,7 +46,7 @@ const MAX_SYNTH_DECAY_MS = 2000;
 const MAX_SYNTH_RELEASE_MS = 4000;
 const DEFAULT_SYNTH_WAVEFORM = "triangle";
 const DEFAULT_SYNTH_PATTERN = "major";
-const PLAYBACK_MODES = new Set(["interrupt", "overlap", "queue"]);
+const PLAYBACK_MODES = new Set(["interrupt", "overlap", "queue", "queue_end"]);
 const TONE_CHARACTERS = new Set(["default", "warm", "bright", "hollow"]);
 const WAVEFORMS = new Set(["auto", "sine", "triangle", "square", "sawtooth"]);
 const SYNTH_WAVEFORMS = new Set(["sine", "triangle", "square", "sawtooth"]);
@@ -83,6 +83,7 @@ let playbackQueueRevision = 0;
 const lastPlaybackAtByNode = new Map();
 const activeCustomSounds = new Set();
 const activeSynthSounds = new Set();
+let pendingQueueEndRequest = null;
 
 function logCustomSoundFailure(stage, { label = "", url = "", sourceKind = "", error = null, detail = "" } = {}) {
     const parts = [`[ComfyUI-Chime] Custom sound failure during ${stage}.`];
@@ -549,6 +550,59 @@ function queuePlayback(task) {
             return task();
         });
     return playbackQueue;
+}
+
+function buildPlaybackRequest(detail, playbackModeOverride = null) {
+    return {
+        sound: detail.sound,
+        volume: detail.volume,
+        playbackMode:
+            playbackModeOverride ??
+            normalizePlaybackMode(typeof detail.playback_mode === "string" ? detail.playback_mode : DEFAULT_PLAYBACK_MODE),
+        synthConfig: detail.synth_config && typeof detail.synth_config === "object" ? detail.synth_config : null,
+        customSoundLabel: typeof detail.custom_sound_label === "string" ? detail.custom_sound_label : "",
+        customSoundSourceKind: typeof detail.custom_sound_source_kind === "string" ? detail.custom_sound_source_kind : "",
+        resolveCustomUrl: () => {
+            if (typeof detail.custom_sound_url === "string" && detail.custom_sound_url.length > 0) {
+                return detail.custom_sound_url;
+            }
+
+            if (detail.sound === "custom") {
+                logCustomSoundFailure("resolve", {
+                    label: typeof detail.custom_sound_label === "string" ? detail.custom_sound_label : "",
+                    sourceKind:
+                        typeof detail.custom_sound_source_kind === "string" ? detail.custom_sound_source_kind : "",
+                    detail: "custom sound is selected, but no valid file was resolved",
+                });
+                if (!detail.error_message) {
+                    showToast("Custom sound is selected, but no valid file was resolved.", "warning");
+                }
+                return null;
+            }
+
+            if (typeof detail.sound === "string" && detail.sound.startsWith(CUSTOM_SOUND_PREFIX)) {
+                return getCustomSoundUrl(detail.sound);
+            }
+
+            return null;
+        },
+    };
+}
+
+async function flushQueueEndPlaybackIfReady(event) {
+    const queueRemaining = Number(event?.detail?.status?.exec_info?.queue_remaining);
+    if (!pendingQueueEndRequest || !Number.isFinite(queueRemaining) || queueRemaining !== 0) {
+        return;
+    }
+
+    const request = pendingQueueEndRequest;
+    pendingQueueEndRequest = null;
+
+    if (shouldSkipForCooldown(request.nodeId, request.cooldownMs)) {
+        return;
+    }
+
+    await playSoundRequest(request.playbackRequest);
 }
 
 function playPattern(
@@ -1438,9 +1492,10 @@ async function previewNodeSound(node) {
                 : customSound
                     ? "manual_repo"
                     : "";
-    const playbackMode = normalizePlaybackMode(
+    const requestedPlaybackMode = normalizePlaybackMode(
         String(getNodeWidgetValue(node, "playback_mode", DEFAULT_PLAYBACK_MODE) || DEFAULT_PLAYBACK_MODE)
     );
+    const playbackMode = requestedPlaybackMode === "queue_end" ? "interrupt" : requestedPlaybackMode;
 
     await playSoundRequest({
         sound,
@@ -1561,44 +1616,24 @@ api.addEventListener("comfyui-chime.play", async (event) => {
         showToast(detail.error_message, "warning");
     }
 
+    if (playbackMode === "queue_end") {
+        pendingQueueEndRequest = {
+            nodeId: detail.node_id,
+            cooldownMs,
+            playbackRequest: buildPlaybackRequest(detail, "overlap"),
+        };
+        return;
+    }
+
     if (shouldSkipForCooldown(detail.node_id, cooldownMs)) {
         return;
     }
 
-    await playSoundRequest({
-        sound: detail.sound,
-        volume: detail.volume,
-        playbackMode,
-        synthConfig:
-            detail.synth_config && typeof detail.synth_config === "object" ? detail.synth_config : null,
-        customSoundLabel: typeof detail.custom_sound_label === "string" ? detail.custom_sound_label : "",
-        customSoundSourceKind:
-            typeof detail.custom_sound_source_kind === "string" ? detail.custom_sound_source_kind : "",
-        resolveCustomUrl: () => {
-            if (typeof detail.custom_sound_url === "string" && detail.custom_sound_url.length > 0) {
-                return detail.custom_sound_url;
-            }
+    await playSoundRequest(buildPlaybackRequest(detail, playbackMode));
+});
 
-            if (detail.sound === "custom") {
-                logCustomSoundFailure("resolve", {
-                    label: typeof detail.custom_sound_label === "string" ? detail.custom_sound_label : "",
-                    sourceKind:
-                        typeof detail.custom_sound_source_kind === "string" ? detail.custom_sound_source_kind : "",
-                    detail: "custom sound is selected, but no valid file was resolved",
-                });
-                if (!detail.error_message) {
-                    showToast("Custom sound is selected, but no valid file was resolved.", "warning");
-                }
-                return null;
-            }
-
-            if (typeof detail.sound === "string" && detail.sound.startsWith(CUSTOM_SOUND_PREFIX)) {
-                return getCustomSoundUrl(detail.sound);
-            }
-
-            return null;
-        },
-    });
+api.addEventListener("status", async (event) => {
+    await flushQueueEndPlaybackIfReady(event);
 });
 
 app.registerExtension({

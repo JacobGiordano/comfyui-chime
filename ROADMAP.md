@@ -31,6 +31,7 @@ Current roadmap for small features, polish passes, and maintenance work.
 - `Chime Synth` Phase 1 is now shipped as a separate helper node with synth-shaping controls, preview, and browser-local preset save/delete, while `Chime` remains unchanged in output behavior
 - Built-in sounds now include a few more clearly notification-oriented and celebratory choices, including `tada`, `victory`, and `unlock`
 - `Chime Synth` now has a playback `speed` control for connected synth sounds, while built-in `Chime` sounds stay fixed-speed
+- `Chime` now has a `queue_end` playback mode for queue-empty notifications after the final queued run finishes
 
 ## Next
 
