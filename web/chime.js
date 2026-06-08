@@ -590,7 +590,8 @@ function buildPlaybackRequest(detail, playbackModeOverride = null) {
 }
 
 async function flushQueueEndPlaybackIfReady(event) {
-    const queueRemaining = Number(event?.detail?.status?.exec_info?.queue_remaining);
+    const execInfo = event?.detail?.exec_info ?? event?.detail?.status?.exec_info ?? null;
+    const queueRemaining = Number(execInfo?.queue_remaining);
     if (!pendingQueueEndRequest || !Number.isFinite(queueRemaining) || queueRemaining !== 0) {
         return;
     }
