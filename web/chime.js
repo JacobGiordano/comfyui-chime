@@ -1177,6 +1177,8 @@ function normalizeNodeWidgets(node) {
 
     const playbackModeWidget = getNodeWidget(node, "playback_mode");
     if (playbackModeWidget) {
+        playbackModeWidget.options = playbackModeWidget.options || {};
+        playbackModeWidget.options.values = Array.from(PLAYBACK_MODES);
         playbackModeWidget.value = normalizePlaybackMode(String(playbackModeWidget.value || ""));
     }
 }
